@@ -1,0 +1,10 @@
+QMainWindow {
+    background-color: #1C2526;
+}
+QLabel {
+    color: #00FF00;
+    font-family: Arial;
+}
+QWidget {
+    background-color: #1C2526;
+}
