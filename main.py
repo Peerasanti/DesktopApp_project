@@ -5,6 +5,7 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
 import tensorflow as tf
 import cv2
+import numpy as np
 from PyQt5.QtWidgets import ( QApplication, QMainWindow, QLabel, QWidget, QVBoxLayout, 
                              QStackedWidget, QPushButton, QFileDialog, QDialog, QHBoxLayout, 
                              QFormLayout, QLineEdit, QDialogButtonBox, QDesktopWidget )
@@ -96,7 +97,6 @@ class PageOne(QWidget):
         main_layout.addWidget(self.header)
         main_layout.addLayout(center_layout)
         main_layout.addStretch()
-
         self.setLayout(main_layout)
 
         self.timer = QTimer()
@@ -170,12 +170,15 @@ class PageOne(QWidget):
             self.label.setPixmap(pixmap)
     
     def check_path(self):
-        # if self.video_path:
-        #     self.main_window.switch_to_page(1)
-        # else:
-        #     self.label.setText("❌ ยังไม่ได้เลือกไฟล์วิดีโอหรือกล้อง")
-        #     return
-        self.main_window.switch_to_page(1)
+        if self.video_path:
+            self.main_window.set_video_path(self.video_path)
+            self.main_window.switch_to_page(1)
+            self.timer.stop()
+            self.is_playing = False
+            self.status_label.setText("⏸️ วิดีโอถูกหยุด")
+        else:
+            self.label.setText("❌ ยังไม่ได้เลือกไฟล์วิดีโอหรือกล้อง")
+            return
 
     def clear_data(self):
         if self.cap:
@@ -185,23 +188,77 @@ class PageOne(QWidget):
         self.status_label.setText("⏳ รอการเลือกวิดีโอหรือกล้อง")
         self.video_path = None
         self.cap = None
+        self.is_playing = False
+
+
 
 class PageTwo(QWidget):
     def __init__(self, stack, main_window):
         super().__init__()
         self.stack = stack
         self.main_window = main_window
+        self.is_playing = False
+        self.video_path = self.main_window.get_video_path()
+        self.model = tf.keras.models.load_model("model/model_for_rat.keras", safe_mode=False)
 
         self.setFixedSize(1600, 900)  
 
-        layout = QVBoxLayout()
-        label = QLabel("This is Page Two")
-        button = QPushButton("Go to Page One")
-        button.clicked.connect(lambda: self.main_window.switch_to_page(0))
-        layout.addWidget(label)
-        layout.addWidget(button)
-        layout.setAlignment(Qt.AlignCenter) 
+        self.video_label = QLabel("📹 เริ่มการตรวจตำแหน่ง")
+        self.video_label.setAlignment(Qt.AlignCenter)
+        self.video_label.setObjectName("VideoDisplay")
+        self.video_label.mousePressEvent = self.on_label_click
+        self.video_label.setFixedSize(1200, 850)
+
+        self.back_button = QPushButton("⬅️ ย้อนกลับ")
+        self.back_button.clicked.connect(lambda: self.main_window.switch_to_page(0))
+
+        layout = QHBoxLayout()
+        layout.addWidget(self.video_label, stretch=3) 
+        layout.addWidget(self.back_button, stretch=1) 
+        layout.setAlignment(Qt.AlignCenter)
         self.setLayout(layout)
+
+        self.timer = QTimer()
+        self.timer.timeout.connect(self.next_frame)
+
+        if self.video_path:
+            self.cap = cv2.VideoCapture(self.video_path)
+            self.is_playing = True
+            if not self.cap.isOpened():
+                print("Error: ไม่สามารถเปิดวิดีโอจาก Path นี้ได้")
+                return
+
+    def on_label_click(self, event):
+        if self.cap and self.cap.isOpened():
+            if self.is_playing:
+                self.timer.stop()
+            else:
+                self.timer.start(30)
+            self.is_playing = not self.is_playing
+
+    def next_frame(self):
+        if self.cap and self.is_playing:
+            ret, frame = self.cap.read()
+            if not ret:
+                self.timer.stop()
+                self.cap.release()
+                self.is_playing = False
+                return
+
+            input_frame = cv2.resize(frame, (128, 128), interpolation=cv2.INTER_CUBIC)  
+            input_frame = np.expand_dims(input_frame, axis=0)
+            result = self.model.predict(input_frame)[0] 
+            result = (result * 255).astype(np.uint8)
+            result = cv2.cvtColor(result, cv2.COLOR_GRAY2BGR) 
+
+            result = cv2.resize(result, (self.video_label.width(), self.video_label.height()), interpolation=cv2.INTER_CUBIC)
+            result = cv2.cvtColor(result, cv2.COLOR_BGR2RGB)
+            h, w, ch = result.shape
+            qimg = QImage(result.data, w, h, ch * w, QImage.Format_RGB888)
+            pixmap = QPixmap.fromImage(qimg).scaled(self.video_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            self.video_label.setPixmap(pixmap)
+
+
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -210,6 +267,7 @@ class MainWindow(QMainWindow):
         self.setWindowIcon(QIcon("assets/mouse.png"))
 
         self.stack = QStackedWidget()
+        self.video_path = None
 
         self.page1 = PageOne(self.stack, self)
         self.page2 = PageTwo(self.stack, self)
@@ -225,7 +283,6 @@ class MainWindow(QMainWindow):
 
     def switch_to_page(self, index):
         self.stack.setCurrentIndex(index)
-        # อัปเดตขนาดหน้าต่างตามขนาดของหน้าใหม่
         current_widget = self.stack.currentWidget()
         self.setFixedSize(current_widget.size()) 
         self.center_window()  
@@ -234,7 +291,15 @@ class MainWindow(QMainWindow):
         window_rect = self.frameGeometry()
         center_point = QDesktopWidget().availableGeometry().center()
         window_rect.moveCenter(center_point)
-        self.move(window_rect.topLeft())  
+        self.move(window_rect.topLeft()) 
+
+    def set_video_path(self, video_path):
+        self.video_path = video_path
+
+    def get_video_path(self):
+        return self.video_path
+
+
 
 def main():
     print(tf.__version__)
