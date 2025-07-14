@@ -171,6 +171,7 @@ class PageOne(QWidget):
     
     def check_path(self):
         if self.video_path:
+            print(self.video_path)
             self.main_window.set_video_path(self.video_path)
             self.main_window.switch_to_page(1)
             self.timer.stop()
@@ -198,35 +199,68 @@ class PageTwo(QWidget):
         self.stack = stack
         self.main_window = main_window
         self.is_playing = False
-        self.video_path = self.main_window.get_video_path()
-        self.model = tf.keras.models.load_model("model/model_for_rat.keras", safe_mode=False)
+        self.cap = None
+        self.model = tf.keras.models.load_model("model/model_for_rat_V2.keras", safe_mode=False)
+        self.frame_count = 0
+        self.process_every_n = 3
 
         self.setFixedSize(1600, 900)  
 
         self.video_label = QLabel("📹 เริ่มการตรวจตำแหน่ง")
         self.video_label.setAlignment(Qt.AlignCenter)
         self.video_label.setObjectName("VideoDisplay")
-        self.video_label.mousePressEvent = self.on_label_click
-        self.video_label.setFixedSize(1200, 850)
+        self.video_label.setFixedSize(1000, 650)
+        self.video_label.mousePressEvent = self.polygon_draw
+
+        self.start_draw_button = QPushButton("✏️ เริ่มการวาดพื้นที่")
+        self.start_draw_button.clicked.connect(self.start_drawing)
+
+        self.stop_botton = QPushButton("⏸️ หยุดวิดีโอ / ▶️เริ่มวิดีโอ")
+        self.stop_botton.clicked.connect(self.on_label_click)
 
         self.back_button = QPushButton("⬅️ ย้อนกลับ")
-        self.back_button.clicked.connect(lambda: self.main_window.switch_to_page(0))
+        self.back_button.clicked.connect(self.on_back_button_clicked)
 
-        layout = QHBoxLayout()
+        layout = QVBoxLayout()
         layout.addWidget(self.video_label, stretch=3) 
+        layout.addWidget(self.stop_botton, stretch=1)
         layout.addWidget(self.back_button, stretch=1) 
         layout.setAlignment(Qt.AlignCenter)
         self.setLayout(layout)
 
-        self.timer = QTimer()
+        self.timer = QTimer() 
         self.timer.timeout.connect(self.next_frame)
 
+        self.polygon_manager = PolygonManager()
+        self.drawing_polygon = False
+        self.active_started = False
+        self.mouse_pos = None
+    
+    def stop_video(self):
+        self.timer.stop()  
+        if self.cap:
+            self.cap.release()  
+            self.cap = None
+        self.is_playing = False
+    
+    def on_back_button_clicked(self):
+        self.stop_video()
+        self.main_window.switch_to_page(0)
+
+    def update_video(self):
+        self.video_path = self.main_window.get_video_path()
         if self.video_path:
+            if self.cap:
+                self.cap.release()
             self.cap = cv2.VideoCapture(self.video_path)
-            self.is_playing = True
-            if not self.cap.isOpened():
+            if self.cap.isOpened():
+                self.is_playing = True
+                self.timer.start(30)
+            else:
                 print("Error: ไม่สามารถเปิดวิดีโอจาก Path นี้ได้")
-                return
+                self.cap = None
+        else:
+            print("Warning: video_path is None")
 
     def on_label_click(self, event):
         if self.cap and self.cap.isOpened():
@@ -245,18 +279,112 @@ class PageTwo(QWidget):
                 self.is_playing = False
                 return
 
-            input_frame = cv2.resize(frame, (128, 128), interpolation=cv2.INTER_CUBIC)  
-            input_frame = np.expand_dims(input_frame, axis=0)
-            result = self.model.predict(input_frame)[0] 
-            result = (result * 255).astype(np.uint8)
-            result = cv2.cvtColor(result, cv2.COLOR_GRAY2BGR) 
+            self.frame_count += 1
 
-            result = cv2.resize(result, (self.video_label.width(), self.video_label.height()), interpolation=cv2.INTER_CUBIC)
-            result = cv2.cvtColor(result, cv2.COLOR_BGR2RGB)
-            h, w, ch = result.shape
-            qimg = QImage(result.data, w, h, ch * w, QImage.Format_RGB888)
-            pixmap = QPixmap.fromImage(qimg).scaled(self.video_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            if self.frame_count % self.process_every_n != 0:
+                return
+
+            frame_display = cv2.resize(frame, (self.video_label.width(), self.video_label.height()), interpolation=cv2.INTER_CUBIC)
+
+            input_frame = cv2.resize(frame, (128, 128), interpolation=cv2.INTER_CUBIC)
+            input_frame = np.expand_dims(input_frame, axis=0)
+            result = self.model.predict(input_frame)[0]  
+            result = (result * 255).astype(np.uint8)
+
+            mask = cv2.resize(result, (self.video_label.width(), self.video_label.height()), interpolation=cv2.INTER_CUBIC)
+
+            _, binary_mask = cv2.threshold(mask, 100, 255, cv2.THRESH_BINARY)
+
+            green_layer = np.zeros((mask.shape[0], mask.shape[1], 3), dtype=np.uint8)
+            green_layer[:, :] = (0, 255, 0)
+
+            green_masked = cv2.bitwise_and(green_layer, green_layer, mask=binary_mask)
+
+            frame_display = frame_display.astype(np.uint8)
+            overlay_frame = cv2.addWeighted(frame_display, 0.9, green_masked, 0.5, 0)
+
+            self.polygon_manager.draw_all(overlay_frame)
+
+            overlay_frame = cv2.cvtColor(overlay_frame, cv2.COLOR_BGR2RGB)
+            h, w, ch = overlay_frame.shape
+            qimg = QImage(overlay_frame.data, w, h, ch * w, QImage.Format_RGB888)
+            margin = 10
+            size = self.video_label.size()
+            scaled_size = QSize(size.width() - margin * 2, size.height() - margin * 2)
+            pixmap = QPixmap.fromImage(qimg).scaled(
+                scaled_size, Qt.IgnoreAspectRatio, Qt.SmoothTransformation
+            )
             self.video_label.setPixmap(pixmap)
+
+    def start_drawing(self):
+        self.drawing_polygon = True
+        self.active_started = False
+    
+    def polygon_draw(self, event):
+        pos = event.pos()
+        x, y = pos.x(), pos.y()
+
+        if event.button() == Qt.RightButton and self.drawing_polygon:
+            self.polygon_manager.close_active()
+            self.drawing_polygon = False
+            self.active_started = False
+            return
+
+        if event.button() == Qt.LeftButton:
+            if self.drawing_polygon:
+                if not self.active_started:
+                    name = f"Polygon-{len(self.polygon_manager.polygons) + 1}"
+                    self.polygon_manager.new_polygon(name)
+                    self.active_started = True
+                self.polygon_manager.add_point_to_active((x, y))
+
+
+
+class Polygon:
+    def __init__(self, name):
+        self.points = []
+        self.name = name
+        self.is_closed = False
+    
+    def add_point(self, point):
+        if not self.is_closed:
+            self.points.append(point)
+    
+    def close(self):
+        if len(self.points) >= 3:
+            self.is_closed = True
+    
+    def draw(self, frame, color=(0, 255, 0), thickness=2):
+        if len(self.points) >= 2:
+            pts = np.array(self.points, dtype=np.int32)
+            cv2.polylines(frame, [pts], isClosed=self.is_closed, color=color, thickness=thickness)
+        for x, y in self.points:
+            cv2.circle(frame, (x, y), 4, (255, 0, 0), -1)
+        if self.points:
+            cv2.putText(frame, self.name, self.points[0], cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
+
+
+
+class PolygonManager:
+    def __init__(self):
+        self.polygons = {}
+        self.active_polygon = None
+
+    def new_polygon(self, name):
+        self.polygons[name] = Polygon(name)
+        self.active_polygon = self.polygons[name]
+
+    def add_point_to_active(self, point):
+        if self.active_polygon:
+            self.active_polygon.add_point(point)
+
+    def close_active(self):
+        if self.active_polygon:
+            self.active_polygon.close()
+
+    def draw_all(self, frame):
+        for polygon in self.polygons.values():
+            polygon.draw(frame)
 
 
 
@@ -286,6 +414,9 @@ class MainWindow(QMainWindow):
         current_widget = self.stack.currentWidget()
         self.setFixedSize(current_widget.size()) 
         self.center_window()  
+
+        if index == 1 and isinstance(current_widget, PageTwo):
+            current_widget.update_video()
 
     def center_window(self):
         window_rect = self.frameGeometry()
