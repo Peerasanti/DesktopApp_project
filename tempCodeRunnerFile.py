@@ -1,36 +1,60 @@
-def next_frame(self):
-        if self.cap and self.is_playing:
-            ret, frame = self.cap.read()
-            if not ret:
-                self.timer.stop()
-                self.cap.release()
-                self.is_playing = False
-                return
+class PageTwo(QWidget):
+    def __init__(self, stack, main_window):
+        super().__init__()
+        self.stack = stack
+        self.main_window = main_window
+        self.is_playing = False
+        self.cap = None
+        self.model = tf.keras.models.load_model("model/model_for_rat_V2.keras", safe_mode=False)
+        self.last_frame = None
+        self.frame_count = 0
+        self.process_every_n = 4
 
-            frame_display = cv2.resize(frame, (self.video_label.width(), self.video_label.height()), interpolation=cv2.INTER_CUBIC)
+        self.polygon_manager = PolygonManager()
+        self.drawing_polygon = False
+        self.active_started = False
+        self.mouse_pos = None
+        self.polygon_name = ""
+        self.polygon_color = (0, 255, 0)
 
-            input_frame = cv2.resize(frame, (128, 128), interpolation=cv2.INTER_CUBIC)
-            input_frame = np.expand_dims(input_frame, axis=0)
-            result = self.model.predict(input_frame)[0]
-            result = (result * 255).astype(np.uint8)
-            result = cv2.cvtColor(result, cv2.COLOR_GRAY2BGR)
+        self.setFixedSize(1600, 900)  
 
-            result_resized = cv2.resize(result, (self.video_label.width(), self.video_label.height()), interpolation=cv2.INTER_CUBIC)
+        self.video_label = QLabel("📹 เริ่มการตรวจตำแหน่ง")
+        # self.video_label.setAlignment(Qt.AlignCenter)
+        self.video_label.setObjectName("VideoDisplay")
+        self.video_label.setFixedSize(1000, 650)
+        self.video_label.mousePressEvent = self.polygon_draw
 
-            edges = cv2.Canny(result_resized, 100, 200)
-            contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-            if contours:
-                cv2.drawContours(overlay_frame, contours, -1, (0, 255, 0), 2)
+        self.start_draw_button = QPushButton("✏️ เริ่มการวาดพื้นที่")
+        self.start_draw_button.clicked.connect(self.start_drawing)
 
-            overlay_frame = cv2.addWeighted(frame_display, 0.7, result_resized, 0.3, 0.0)
+        self.stop_botton = QPushButton("⏸️ หยุดวิดีโอ / ▶️เริ่มวิดีโอ")
+        self.stop_botton.clicked.connect(self.on_label_click)
 
-            overlay_frame = cv2.cvtColor(overlay_frame, cv2.COLOR_BGR2RGB)
-            h, w, ch = overlay_frame.shape
-            qimg = QImage(overlay_frame.data, w, h, ch * w, QImage.Format_RGB888)
-            margin = 10  
-            size = self.label.size()
-            scaled_size = QSize(size.width() - margin * 2, size.height() - margin * 2)
-            pixmap = QPixmap.fromImage(qimg).scaled(
-                scaled_size, Qt.IgnoreAspectRatio, Qt.SmoothTransformation
-            )
-            self.video_label.setPixmap(pixmap)
+        self.back_button = QPushButton("⬅️ ย้อนกลับ")
+        self.back_button.clicked.connect(self.on_back_button_clicked)
+
+        self.create_polygon_table()
+
+        button_layout = QHBoxLayout()
+        button_layout.addWidget(self.start_draw_button)
+        button_layout.addWidget(self.stop_botton)
+        button_layout.addStretch()
+        button_layout.addWidget(self.back_button)
+
+        left_layout = QVBoxLayout()
+        left_layout.addWidget(self.video_label)
+        left_layout.addLayout(button_layout)
+
+        right_layout = QVBoxLayout()
+        right_layout.addWidget(QLabel("🧩 รายการ Polygon"))
+        right_layout.addWidget(self.polygon_table)
+        right_layout.addStretch()
+
+        main_layout = QHBoxLayout()
+        main_layout.addLayout(left_layout, stretch=1)
+        main_layout.addLayout(right_layout, stretch=1)
+        self.setLayout(main_layout)
+
+        self.timer = QTimer()
+        self.timer.timeout.connect(self.next_frame)

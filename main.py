@@ -1,3 +1,5 @@
+# Full path for run script: "C:\Users\WINDOWS\miniconda3\envs\rat_lab\python.exe" -u "d:\DesktopApp_project\main.py"
+
 import sys
 import os
 os.environ["TF_ENABLE_ONEDNN_OPTS"] = "1"
@@ -8,9 +10,10 @@ import cv2
 import numpy as np
 from PyQt5.QtWidgets import ( QApplication, QMainWindow, QLabel, QWidget, QVBoxLayout, 
                              QStackedWidget, QPushButton, QFileDialog, QDialog, QHBoxLayout, 
-                             QFormLayout, QLineEdit, QDialogButtonBox, QDesktopWidget )
+                             QFormLayout, QLineEdit, QDialogButtonBox, QDesktopWidget, QInputDialog,
+                             QColorDialog, QTableWidget, QTableWidgetItem, QMessageBox)
 from PyQt5.QtCore import Qt, QTimer, QSize
-from PyQt5.QtGui import QIcon, QPixmap, QImage, QFont
+from PyQt5.QtGui import QIcon, QPixmap, QImage, QFont, QColor
 
 class IPCameraDialog(QDialog):
     def __init__(self):
@@ -195,14 +198,22 @@ class PageOne(QWidget):
 
 class PageTwo(QWidget):
     def __init__(self, stack, main_window):
-        super().__init__()
+        super().__init__()  
         self.stack = stack
         self.main_window = main_window
         self.is_playing = False
         self.cap = None
         self.model = tf.keras.models.load_model("model/model_for_rat_V2.keras", safe_mode=False)
+        self.last_frame = None
         self.frame_count = 0
-        self.process_every_n = 3
+        self.process_every_n = 4
+
+        self.polygon_manager = PolygonManager()
+        self.drawing_polygon = False
+        self.active_started = False
+        self.mouse_pos = None
+        self.polygon_name = ""
+        self.polygon_color = (0, 255, 0)
 
         self.setFixedSize(1600, 900)  
 
@@ -221,21 +232,96 @@ class PageTwo(QWidget):
         self.back_button = QPushButton("⬅️ ย้อนกลับ")
         self.back_button.clicked.connect(self.on_back_button_clicked)
 
-        layout = QVBoxLayout()
-        layout.addWidget(self.video_label, stretch=3) 
-        layout.addWidget(self.stop_botton, stretch=1)
-        layout.addWidget(self.back_button, stretch=1) 
-        layout.setAlignment(Qt.AlignCenter)
-        self.setLayout(layout)
+        button_layout = QHBoxLayout()
+        button_layout.addWidget(self.start_draw_button)
+        button_layout.addWidget(self.stop_botton)
+        button_layout.addStretch()
+        button_layout.addWidget(self.back_button)
 
-        self.timer = QTimer() 
+        self.create_polygon_table()
+
+        polygon_label = QLabel("🧾 รายการ Polygon")
+        polygon_label.setAlignment(Qt.AlignCenter)
+        polygon_label.setStyleSheet("font-size: 14px; color: #00ff99;")
+
+        right_layout = QVBoxLayout()
+        right_layout.addWidget(polygon_label)
+        right_layout.addWidget(self.polygon_table)
+        right_layout.addStretch()
+
+        left_layout = QVBoxLayout()
+        left_layout.addWidget(self.video_label)
+        left_layout.addLayout(button_layout)
+
+        main_layout = QHBoxLayout()
+        main_layout.addLayout(left_layout, stretch=1)
+        main_layout.addLayout(right_layout, stretch=1)
+        self.setLayout(main_layout)
+
+        self.timer = QTimer()
         self.timer.timeout.connect(self.next_frame)
 
-        self.polygon_manager = PolygonManager()
-        self.drawing_polygon = False
-        self.active_started = False
-        self.mouse_pos = None
+    def delete_polygon(self, name):
+        if name in self.polygon_manager.polygons:
+            del self.polygon_manager.polygons[name]
+            self.update_polygon_table()
+            self.next_frame()
     
+    def edit_polygon(self, name):
+        pass
+        # polygon = self.polygon_manager.polygons[name]
+        # color = QColorDialog.getColor(QColor(*polygon.color))
+        # if color.isValid():
+        #     polygon.color = (color.blue(), color.green(), color.red())
+        #     self.update_polygon_table()
+        #     self.next_frame()
+    
+    def update_polygon_table(self):
+        polygons = self.polygon_manager.polygons
+        self.polygon_table.setRowCount(len(polygons))
+
+        for i, (name, polygon) in enumerate(polygons.items()):
+            name_item = QTableWidgetItem(name)
+            color_item = QTableWidgetItem()
+            color = polygon.color
+            rgb_color = (color[2], color[1], color[0])
+            qcolor = QColor(*rgb_color)
+            color_item.setBackground(qcolor)
+            color_item.setText(f"({rgb_color[0]}, {rgb_color[1]}, {rgb_color[2]})")
+
+            btn_delete = QPushButton("ลบ")
+            btn_delete.clicked.connect(lambda _, name=name: self.delete_polygon(name))
+
+            btn_edit = QPushButton("แก้ไข")
+            btn_edit.clicked.connect(lambda _, name=name: self.edit_polygon(name))
+
+            cell_widget = QWidget()
+            layout = QHBoxLayout(cell_widget)
+            layout.addWidget(btn_delete)
+            layout.addWidget(btn_edit)
+            layout.setContentsMargins(0, 0, 0, 0)
+            layout.setAlignment(Qt.AlignCenter)
+            cell_widget.setLayout(layout)
+
+            self.polygon_table.setItem(i, 0, name_item)
+            self.polygon_table.setItem(i, 1, color_item)
+            self.polygon_table.setCellWidget(i, 2, cell_widget)
+
+    def create_polygon_table(self):
+        self.polygon_table = QTableWidget()
+        self.polygon_table.setColumnCount(3)
+        self.polygon_table.setHorizontalHeaderLabels(["ชื่อ", "สี", "การจัดการ"])
+        self.polygon_table.setFixedHeight(200)
+        self.polygon_table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.polygon_table.horizontalHeader().setStretchLastSection(True)
+
+        font = self.polygon_table.font()
+        font.setPointSize(10)
+        self.polygon_table.setFont(font)
+        self.polygon_table.verticalHeader().setDefaultSectionSize(36)
+
+        self.update_polygon_table()
+
     def stop_video(self):
         self.timer.stop()  
         if self.cap:
@@ -270,8 +356,18 @@ class PageTwo(QWidget):
                 self.timer.start(30)
             self.is_playing = not self.is_playing
 
-    def next_frame(self):
-        if self.cap and self.is_playing:
+    def next_frame(self):  
+        if not self.cap:
+            return
+        
+        if not self.is_playing:
+            if self.last_frame is None:
+                success, frame = self.cap.read()
+                if not success:
+                    return
+                self.last_frame = frame
+            current_frame = self.last_frame
+        else:
             ret, frame = self.cap.read()
             if not ret:
                 self.timer.stop()
@@ -279,46 +375,58 @@ class PageTwo(QWidget):
                 self.is_playing = False
                 return
 
+            self.last_frame = frame
             self.frame_count += 1
-
             if self.frame_count % self.process_every_n != 0:
                 return
+            
+            current_frame = frame
 
-            frame_display = cv2.resize(frame, (self.video_label.width(), self.video_label.height()), interpolation=cv2.INTER_CUBIC)
+        frame_display = cv2.resize(current_frame, (self.video_label.width(), self.video_label.height()), interpolation=cv2.INTER_CUBIC)
 
-            input_frame = cv2.resize(frame, (128, 128), interpolation=cv2.INTER_CUBIC)
-            input_frame = np.expand_dims(input_frame, axis=0)
-            result = self.model.predict(input_frame)[0]  
-            result = (result * 255).astype(np.uint8)
+        input_frame = cv2.resize(current_frame, (128, 128), interpolation=cv2.INTER_CUBIC)
+        input_frame = np.expand_dims(input_frame, axis=0)
+        result = self.model.predict(input_frame)[0]  
+        result = (result * 255).astype(np.uint8)
 
-            mask = cv2.resize(result, (self.video_label.width(), self.video_label.height()), interpolation=cv2.INTER_CUBIC)
+        mask = cv2.resize(result, (self.video_label.width(), self.video_label.height()), interpolation=cv2.INTER_CUBIC)
 
-            _, binary_mask = cv2.threshold(mask, 100, 255, cv2.THRESH_BINARY)
+        _, binary_mask = cv2.threshold(mask, 100, 255, cv2.THRESH_BINARY)
 
-            green_layer = np.zeros((mask.shape[0], mask.shape[1], 3), dtype=np.uint8)
-            green_layer[:, :] = (0, 255, 0)
+        green_layer = np.zeros((mask.shape[0], mask.shape[1], 3), dtype=np.uint8)
+        green_layer[:, :] = (0, 255, 0)
 
-            green_masked = cv2.bitwise_and(green_layer, green_layer, mask=binary_mask)
+        green_masked = cv2.bitwise_and(green_layer, green_layer, mask=binary_mask)
 
-            frame_display = frame_display.astype(np.uint8)
-            overlay_frame = cv2.addWeighted(frame_display, 0.9, green_masked, 0.5, 0)
+        frame_display = frame_display.astype(np.uint8)
+        overlay_frame = cv2.addWeighted(frame_display, 0.9, green_masked, 0.5, 0)
 
-            self.polygon_manager.draw_all(overlay_frame)
+        self.polygon_manager.draw_all(overlay_frame)
 
-            overlay_frame = cv2.cvtColor(overlay_frame, cv2.COLOR_BGR2RGB)
-            h, w, ch = overlay_frame.shape
-            qimg = QImage(overlay_frame.data, w, h, ch * w, QImage.Format_RGB888)
-            margin = 10
-            size = self.video_label.size()
-            scaled_size = QSize(size.width() - margin * 2, size.height() - margin * 2)
-            pixmap = QPixmap.fromImage(qimg).scaled(
-                scaled_size, Qt.IgnoreAspectRatio, Qt.SmoothTransformation
-            )
-            self.video_label.setPixmap(pixmap)
+        overlay_frame = cv2.cvtColor(overlay_frame, cv2.COLOR_BGR2RGB)
+        h, w, ch = overlay_frame.shape
+        qimg = QImage(overlay_frame.data, w, h, ch * w, QImage.Format_RGB888)
+        margin = 10
+        size = self.video_label.size()
+        scaled_size = QSize(size.width() - margin * 2, size.height() - margin * 2)
+        pixmap = QPixmap.fromImage(qimg).scaled(
+            scaled_size, Qt.IgnoreAspectRatio, Qt.SmoothTransformation
+        )
+        self.video_label.setPixmap(pixmap)
 
     def start_drawing(self):
+        name, ok = QInputDialog.getText(self, "ชื่อ Polygon", "กรุณาตั้งชื่อ")
+        if not ok or not name.strip():
+            name = f"Polygon-{len(self.polygon_manager.polygons) + 1}"
+
+        color = QColorDialog.getColor()
+        if not color.isValid():
+            color = QColor(0, 255, 0)
+        
         self.drawing_polygon = True
         self.active_started = False
+        self.polygon_name = name
+        self.polygon_color = (color.blue(), color.green(), color.red())
     
     def polygon_draw(self, event):
         pos = event.pos()
@@ -328,21 +436,28 @@ class PageTwo(QWidget):
             self.polygon_manager.close_active()
             self.drawing_polygon = False
             self.active_started = False
+            self.polygon_name = ""
+            self.polygon_color = (0, 255, 0)
+            self.update_polygon_table()
+            self.next_frame()
             return
 
         if event.button() == Qt.LeftButton:
             if self.drawing_polygon:
                 if not self.active_started:
-                    name = f"Polygon-{len(self.polygon_manager.polygons) + 1}"
-                    self.polygon_manager.new_polygon(name)
+                    name = self.polygon_name
+                    color = self.polygon_color
+                    self.polygon_manager.new_polygon(name, color)
                     self.active_started = True
                 self.polygon_manager.add_point_to_active((x, y))
+                self.next_frame()
 
 
 
 class Polygon:
-    def __init__(self, name):
+    def __init__(self, name, color):
         self.points = []
+        self.color = color
         self.name = name
         self.is_closed = False
     
@@ -354,14 +469,14 @@ class Polygon:
         if len(self.points) >= 3:
             self.is_closed = True
     
-    def draw(self, frame, color=(0, 255, 0), thickness=2):
+    def draw(self, frame, thickness=2):
         if len(self.points) >= 2:
             pts = np.array(self.points, dtype=np.int32)
-            cv2.polylines(frame, [pts], isClosed=self.is_closed, color=color, thickness=thickness)
+            cv2.polylines(frame, [pts], isClosed=self.is_closed, color=self.color, thickness=thickness)
         for x, y in self.points:
-            cv2.circle(frame, (x, y), 4, (255, 0, 0), -1)
+            cv2.circle(frame, (x, y), 3, (255, 0, 0), -1)
         if self.points:
-            cv2.putText(frame, self.name, self.points[0], cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
+            cv2.putText(frame, self.name, self.points[0], cv2.FONT_HERSHEY_SIMPLEX, 0.6, self.color, 2)
 
 
 
@@ -370,8 +485,8 @@ class PolygonManager:
         self.polygons = {}
         self.active_polygon = None
 
-    def new_polygon(self, name):
-        self.polygons[name] = Polygon(name)
+    def new_polygon(self, name, color):
+        self.polygons[name] = Polygon(name, color)
         self.active_polygon = self.polygons[name]
 
     def add_point_to_active(self, point):

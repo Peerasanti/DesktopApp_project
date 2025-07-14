@@ -5,6 +5,7 @@ QWidget {
     font-size: 16px;
 }
 
+/* Header */
 QLabel#Header {
     color: #00ff66;
     font-size: 28px;
@@ -12,17 +13,20 @@ QLabel#Header {
     padding: 10px;
 }
 
+/* Video Display */
 QLabel#VideoDisplay {
     border: 2px dashed #00cc66;
     background-color: #1e1e1e;
     color: #aaffcc;
+    padding: 10px;
 }
 
+/* Buttons */
 QPushButton {
     background-color: #005f3f;
     color: #e0ffe0;
     border-radius: 10px;
-    padding: 10px 20px;
+    padding: 8px 18px;
     border: 1px solid #00cc66;
 }
 
@@ -32,4 +36,59 @@ QPushButton:hover {
 
 QPushButton:pressed {
     background-color: #004d33;
+}
+
+/* LineEdit (IP input) */
+QLineEdit {
+    background-color: #1e1e1e;
+    color: #aaffcc;
+    border: 1px solid #00cc66;
+    border-radius: 5px;
+    padding: 5px;
+}
+
+/* TableWidget */
+QTableWidget {
+    background-color: #1e1e1e;
+    alternate-background-color: #262626;
+    gridline-color: #00cc66;
+    border: 1px solid #00cc66;
+}
+
+QHeaderView::section {
+    background-color: #004d33;
+    color: #e0ffe0;
+    padding: 4px;
+    border: 1px solid #00cc66;
+    font-weight: bold;
+}
+
+QTableWidget::item {
+    padding: 5px;
+}
+
+QTableWidget QTableCornerButton::section {
+    background-color: #003322;
+}
+
+/* Dialog Buttons (OK/Cancel) */
+QDialogButtonBox QPushButton {
+    background-color: #00664d;
+    border: 1px solid #00cc66;
+    padding: 6px 14px;
+    border-radius: 6px;
+}
+
+QDialogButtonBox QPushButton:hover {
+    background-color: #008f66;
+}
+
+QDialogButtonBox QPushButton:pressed {
+    background-color: #004d33;
+}
+
+/* Message Boxes */
+QMessageBox {
+    background-color: #121212;
+    color: #e0ffe0;
 }
