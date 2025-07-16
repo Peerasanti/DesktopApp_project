@@ -11,7 +11,7 @@ import numpy as np
 from PyQt5.QtWidgets import ( QApplication, QMainWindow, QLabel, QWidget, QVBoxLayout, 
                              QStackedWidget, QPushButton, QFileDialog, QDialog, QHBoxLayout, 
                              QFormLayout, QLineEdit, QDialogButtonBox, QDesktopWidget, QInputDialog,
-                             QColorDialog, QTableWidget, QTableWidgetItem, QSizePolicy )
+                             QColorDialog, QTableWidget, QTableWidgetItem, QHeaderView )
 from PyQt5.QtCore import Qt, QTimer, QSize
 from PyQt5.QtGui import QIcon, QPixmap, QImage, QFont, QColor, QPainter
 
@@ -47,27 +47,23 @@ class PageOne(QWidget):
 
         self.setFixedSize(650, 660)  
 
-        # Header
         self.header = QLabel("🐭 Mice Detection Program")
         self.header.setAlignment(Qt.AlignCenter)
         self.header.setFont(QFont("Arial", 24))
         self.header.setObjectName("Header")
 
-        # Video display
         self.label = QLabel("🎥 เลือกไฟล์วิดีโอหรือกล้อง")
         self.label.setAlignment(Qt.AlignCenter)
         self.label.setFixedSize(600, 400)
         self.label.setObjectName("VideoDisplay")
         self.label.mousePressEvent = self.on_label_click
 
-        # Status label
         self.status_label = QLabel("⏳ รอการเลือกวิดีโอหรือกล้อง")
         self.status_label.setAlignment(Qt.AlignCenter)
         self.status_label.setFixedSize(580, 50)  
         self.status_label.move(10, 10)  
         self.status_label.raise_()
 
-        # Buttons
         self.button = QPushButton("📂 เลือกไฟล์วิดีโอ")
         self.button.clicked.connect(self.browse_video)
 
@@ -80,7 +76,6 @@ class PageOne(QWidget):
         self.clear = QPushButton("❌ ล้างข้อมูล")
         self.clear.clicked.connect(self.clear_data)
 
-        # Layout
         btn_layout = QHBoxLayout()
         btn_layout.addWidget(self.button)
         btn_layout.addWidget(self.camera)
@@ -336,11 +331,14 @@ class PageTwo(QWidget):
             rgb_color = (color[2], color[1], color[0])
             qcolor = QColor(*rgb_color)
             color_item.setBackground(qcolor)
+            color_item.setText(f"({color[2]}, {color[1]}, {color[0]})")
 
-            btn_delete = QPushButton("ลบ")
+            btn_delete = QPushButton("🗑️ ลบ")
+            btn_delete.setStyleSheet("""background-color: #e74c3c; """)
             btn_delete.clicked.connect(lambda _, name=name: self.delete_polygon(name))
 
-            btn_edit = QPushButton("แก้ไข")
+            btn_edit = QPushButton("✏️แก้ไข")
+            btn_edit.setStyleSheet("""background-color: #f1c40f; """)
             btn_edit.clicked.connect(lambda _, name=name: self.edit_polygon(name))
 
             cell_widget = QWidget()
@@ -361,14 +359,18 @@ class PageTwo(QWidget):
         self.polygon_table = QTableWidget()
         self.polygon_table.setColumnCount(5)
         self.polygon_table.setHorizontalHeaderLabels(["ชื่อ", "สี", "จำนวนครั้ง", "เวลาทั้งหมด", "การจัดการ"])
-        self.polygon_table.setFixedHeight(200)
+        
+        self.polygon_table.verticalHeader().setDefaultSectionSize(50)
+
+        header = self.polygon_table.horizontalHeader()
+        header.setSectionResizeMode(QHeaderView.Stretch)  
+
+        self.polygon_table.setFixedHeight(220)
         self.polygon_table.setEditTriggers(QTableWidget.NoEditTriggers)
-        self.polygon_table.horizontalHeader().setStretchLastSection(True)
 
         font = self.polygon_table.font()
-        font.setPointSize(7)
+        font.setPointSize(8)
         self.polygon_table.setFont(font)
-        self.polygon_table.verticalHeader().setDefaultSectionSize(33)
 
         self.update_polygon_table()
 
