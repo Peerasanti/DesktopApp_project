@@ -11,9 +11,9 @@ import numpy as np
 from PyQt5.QtWidgets import ( QApplication, QMainWindow, QLabel, QWidget, QVBoxLayout, 
                              QStackedWidget, QPushButton, QFileDialog, QDialog, QHBoxLayout, 
                              QFormLayout, QLineEdit, QDialogButtonBox, QDesktopWidget, QInputDialog,
-                             QColorDialog, QTableWidget, QTableWidgetItem, QMessageBox)
+                             QColorDialog, QTableWidget, QTableWidgetItem, QSizePolicy )
 from PyQt5.QtCore import Qt, QTimer, QSize
-from PyQt5.QtGui import QIcon, QPixmap, QImage, QFont, QColor
+from PyQt5.QtGui import QIcon, QPixmap, QImage, QFont, QColor, QPainter
 
 class IPCameraDialog(QDialog):
     def __init__(self):
@@ -151,6 +151,9 @@ class PageOne(QWidget):
         self.is_playing = True
         self.timer.start(30)
         self.status_label.setText("▶️วิดีโอกำลังเล่น")
+        self.fps = self.cap.get(cv2.CAP_PROP_FPS)
+        if self.fps == 0 or np.isnan(self.fps):  
+            self.fps = 30
 
     def next_frame(self):
         if self.cap and self.is_playing:
@@ -164,22 +167,34 @@ class PageOne(QWidget):
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             h, w, ch = frame.shape
             qimg = QImage(frame.data, w, h, ch * w, QImage.Format_RGB888)
+
+            fps_text = f"FPS: {self.fps:.1f}"
+            painter = QPainter(qimg)
+            painter.setPen(QColor(0, 255, 128))  
+            font = QFont("Segoe UI", 28, QFont.Bold)
+            painter.setFont(font)
+            painter.drawText(20, 70, fps_text)
+            painter.end()
+
             margin = 10  
             size = self.label.size()
             scaled_size = QSize(size.width() - margin * 2, size.height() - margin * 2)
+            
             pixmap = QPixmap.fromImage(qimg).scaled(
                 scaled_size, Qt.IgnoreAspectRatio, Qt.SmoothTransformation
             )
+
             self.label.setPixmap(pixmap)
-    
+
     def check_path(self):
         if self.video_path:
-            print(self.video_path)
+            self.main_window.set_fps(self.fps)
             self.main_window.set_video_path(self.video_path)
             self.main_window.switch_to_page(1)
             self.timer.stop()
             self.is_playing = False
             self.status_label.setText("⏸️ วิดีโอถูกหยุด")
+            print(self.fps)
         else:
             self.label.setText("❌ ยังไม่ได้เลือกไฟล์วิดีโอหรือกล้อง")
             return
@@ -198,16 +213,23 @@ class PageOne(QWidget):
 
 class PageTwo(QWidget):
     def __init__(self, stack, main_window):
-        super().__init__()  
+        super().__init__()
         self.stack = stack
         self.main_window = main_window
+        self.setFocusPolicy(Qt.StrongFocus)
+        self.move_mode = False
+        screen = QApplication.primaryScreen()
+        screen = QDesktopWidget().availableGeometry()
+        # self.setFixedSize(screen.width(), screen.height())
+        self.setFixedSize(1400, 950)
+
         self.is_playing = False
         self.cap = None
-        self.model = tf.keras.models.load_model("model/model_for_rat_V2.keras", safe_mode=False)
         self.last_frame = None
         self.frame_count = 0
         self.process_every_n = 4
 
+        self.model = tf.keras.models.load_model("model/model_for_rat_V2.keras", safe_mode=False)
         self.polygon_manager = PolygonManager()
         self.drawing_polygon = False
         self.active_started = False
@@ -215,51 +237,65 @@ class PageTwo(QWidget):
         self.polygon_name = ""
         self.polygon_color = (0, 255, 0)
 
-        self.setFixedSize(1600, 900)  
-
         self.video_label = QLabel("📹 เริ่มการตรวจตำแหน่ง")
         self.video_label.setAlignment(Qt.AlignCenter)
         self.video_label.setObjectName("VideoDisplay")
-        self.video_label.setFixedSize(1000, 650)
         self.video_label.mousePressEvent = self.polygon_draw
 
-        self.start_draw_button = QPushButton("✏️ เริ่มการวาดพื้นที่")
-        self.start_draw_button.clicked.connect(self.start_drawing)
+        self.create_polygon_table()
 
-        self.stop_botton = QPushButton("⏸️ หยุดวิดีโอ / ▶️เริ่มวิดีโอ")
-        self.stop_botton.clicked.connect(self.on_label_click)
+        table_layout = QVBoxLayout()
+        table_layout.addWidget(self.polygon_table)
 
         self.back_button = QPushButton("⬅️ ย้อนกลับ")
         self.back_button.clicked.connect(self.on_back_button_clicked)
 
+        self.summary_button = QPushButton("📊 สรุปผล")
+
         button_layout = QHBoxLayout()
-        button_layout.addWidget(self.start_draw_button)
-        button_layout.addWidget(self.stop_botton)
-        button_layout.addStretch()
         button_layout.addWidget(self.back_button)
+        button_layout.addWidget(self.summary_button)
 
-        self.create_polygon_table()
+        main_layout = QVBoxLayout()
+        main_layout.addWidget(self.video_label, stretch=3)
+        main_layout.addLayout(table_layout, stretch=1)
+        main_layout.addLayout(button_layout)
 
-        polygon_label = QLabel("🧾 รายการ Polygon")
-        polygon_label.setAlignment(Qt.AlignCenter)
-        polygon_label.setStyleSheet("font-size: 14px; color: #00ff99;")
-
-        right_layout = QVBoxLayout()
-        right_layout.addWidget(polygon_label)
-        right_layout.addWidget(self.polygon_table)
-        right_layout.addStretch()
-
-        left_layout = QVBoxLayout()
-        left_layout.addWidget(self.video_label)
-        left_layout.addLayout(button_layout)
-
-        main_layout = QHBoxLayout()
-        main_layout.addLayout(left_layout, stretch=1)
-        main_layout.addLayout(right_layout, stretch=1)
         self.setLayout(main_layout)
 
         self.timer = QTimer()
         self.timer.timeout.connect(self.next_frame)
+
+    def keyPressEvent(self, event):
+        key = event.key()
+        if key == Qt.Key_Z:
+            self.start_drawing()
+        elif key == Qt.Key_Space:
+            self.on_label_click()
+        elif key == Qt.Key_M:
+            if not self.drawing_polygon:
+                self.move_polygon()
+        elif self.move_mode:  
+            move_distance = 5  
+            if key == Qt.Key_W:  
+                self.polygon_manager.move_all_polygons(0, -move_distance)
+            elif key == Qt.Key_S:  
+                self.polygon_manager.move_all_polygons(0, move_distance)
+            elif key == Qt.Key_A:  
+                self.polygon_manager.move_all_polygons(-move_distance, 0)
+            elif key == Qt.Key_D:  
+                self.polygon_manager.move_all_polygons(move_distance, 0)
+            elif key == Qt.Key_Q:  
+                self.polygon_manager.rotate_all_polygons(np.deg2rad(5))  
+            elif key == Qt.Key_E:  
+                self.polygon_manager.rotate_all_polygons(np.deg2rad(-5))
+            self.next_frame()
+        else:
+            super().keyPressEvent(event)
+    
+    def move_polygon(self):
+        self.move_mode = not self.move_mode
+
 
     def delete_polygon(self, name):
         if name in self.polygon_manager.polygons:
@@ -269,12 +305,6 @@ class PageTwo(QWidget):
     
     def edit_polygon(self, name):
         pass
-        # polygon = self.polygon_manager.polygons[name]
-        # color = QColorDialog.getColor(QColor(*polygon.color))
-        # if color.isValid():
-        #     polygon.color = (color.blue(), color.green(), color.red())
-        #     self.update_polygon_table()
-        #     self.next_frame()
     
     def update_polygon_table(self):
         polygons = self.polygon_manager.polygons
@@ -283,11 +313,13 @@ class PageTwo(QWidget):
         for i, (name, polygon) in enumerate(polygons.items()):
             name_item = QTableWidgetItem(name)
             color_item = QTableWidgetItem()
+            hit_count_item = QTableWidgetItem(str(polygon.hit_count))
+            hit_time_item = QTableWidgetItem(str(polygon.hit_time))
+
             color = polygon.color
             rgb_color = (color[2], color[1], color[0])
             qcolor = QColor(*rgb_color)
             color_item.setBackground(qcolor)
-            color_item.setText(f"({rgb_color[0]}, {rgb_color[1]}, {rgb_color[2]})")
 
             btn_delete = QPushButton("ลบ")
             btn_delete.clicked.connect(lambda _, name=name: self.delete_polygon(name))
@@ -305,20 +337,22 @@ class PageTwo(QWidget):
 
             self.polygon_table.setItem(i, 0, name_item)
             self.polygon_table.setItem(i, 1, color_item)
-            self.polygon_table.setCellWidget(i, 2, cell_widget)
+            self.polygon_table.setItem(i, 2, hit_count_item)
+            self.polygon_table.setItem(i, 3, hit_time_item)
+            self.polygon_table.setCellWidget(i, 4, cell_widget)
 
     def create_polygon_table(self):
         self.polygon_table = QTableWidget()
-        self.polygon_table.setColumnCount(3)
-        self.polygon_table.setHorizontalHeaderLabels(["ชื่อ", "สี", "การจัดการ"])
+        self.polygon_table.setColumnCount(5)
+        self.polygon_table.setHorizontalHeaderLabels(["ชื่อ", "สี", "จำนวนครั้ง", "เวลาทั้งหมด", "การจัดการ"])
         self.polygon_table.setFixedHeight(200)
         self.polygon_table.setEditTriggers(QTableWidget.NoEditTriggers)
         self.polygon_table.horizontalHeader().setStretchLastSection(True)
 
         font = self.polygon_table.font()
-        font.setPointSize(10)
+        font.setPointSize(7)
         self.polygon_table.setFont(font)
-        self.polygon_table.verticalHeader().setDefaultSectionSize(36)
+        self.polygon_table.verticalHeader().setDefaultSectionSize(33)
 
         self.update_polygon_table()
 
@@ -334,6 +368,7 @@ class PageTwo(QWidget):
         self.main_window.switch_to_page(0)
 
     def update_video(self):
+        self.fps = self.main_window.get_fps()
         self.video_path = self.main_window.get_video_path()
         if self.video_path:
             if self.cap:
@@ -348,7 +383,8 @@ class PageTwo(QWidget):
         else:
             print("Warning: video_path is None")
 
-    def on_label_click(self, event):
+    def on_label_click(self):
+        print(self.fps)
         if self.cap and self.cap.isOpened():
             if self.is_playing:
                 self.timer.stop()
@@ -388,14 +424,11 @@ class PageTwo(QWidget):
         input_frame = np.expand_dims(input_frame, axis=0)
         result = self.model.predict(input_frame)[0]  
         result = (result * 255).astype(np.uint8)
-
         mask = cv2.resize(result, (self.video_label.width(), self.video_label.height()), interpolation=cv2.INTER_CUBIC)
-
         _, binary_mask = cv2.threshold(mask, 100, 255, cv2.THRESH_BINARY)
 
         green_layer = np.zeros((mask.shape[0], mask.shape[1], 3), dtype=np.uint8)
         green_layer[:, :] = (0, 255, 0)
-
         green_masked = cv2.bitwise_and(green_layer, green_layer, mask=binary_mask)
 
         frame_display = frame_display.astype(np.uint8)
@@ -403,25 +436,54 @@ class PageTwo(QWidget):
 
         self.polygon_manager.draw_all(overlay_frame)
 
+        self.calculate_overlap(binary_mask)
+
+        if self.frame_count % int(self.fps) == 0:
+            self.update_polygon_table()
+
         overlay_frame = cv2.cvtColor(overlay_frame, cv2.COLOR_BGR2RGB)
         h, w, ch = overlay_frame.shape
         qimg = QImage(overlay_frame.data, w, h, ch * w, QImage.Format_RGB888)
+
+        fps_text = f"FPS: {self.fps:.1f}"
+        draw = f"(Z) to Draw Area"
+        stop = f"(Space) to Stop "
+        move_mode = f"(M) Move Mode"
+        move = f"(W, A, S, D) to Move"
+        rotate = f"(Q, E) to Rotate"
+        painter = QPainter(qimg)
+        painter.setPen(QColor(0, 255, 128))  
+        font = QFont("Segoe UI", 14)
+        painter.setFont(font)
+        painter.drawText(10, 50, fps_text)
+        painter.drawText(10, 80, draw)
+        painter.drawText(10, 110, stop)
+        painter.drawText(10, 140, move_mode)
+        if self.move_mode:
+            painter.drawText(10, 170, move)
+            painter.drawText(10, 200, rotate)
+        painter.end()
+
         margin = 10
         size = self.video_label.size()
         scaled_size = QSize(size.width() - margin * 2, size.height() - margin * 2)
+
         pixmap = QPixmap.fromImage(qimg).scaled(
             scaled_size, Qt.IgnoreAspectRatio, Qt.SmoothTransformation
         )
+
         self.video_label.setPixmap(pixmap)
 
     def start_drawing(self):
-        name, ok = QInputDialog.getText(self, "ชื่อ Polygon", "กรุณาตั้งชื่อ")
-        if not ok or not name.strip():
+        name, ok = QInputDialog.getText(self, "ชื่อพื้นที่", "กรุณาตั้งชื่อ")
+        if not ok:
+            return
+        elif not name.strip():
             name = f"Polygon-{len(self.polygon_manager.polygons) + 1}"
 
         color = QColorDialog.getColor()
         if not color.isValid():
-            color = QColor(0, 255, 0)
+            return
         
         self.drawing_polygon = True
         self.active_started = False
@@ -451,6 +513,30 @@ class PageTwo(QWidget):
                     self.active_started = True
                 self.polygon_manager.add_point_to_active((x, y))
                 self.next_frame()
+    
+    def calculate_overlap(self, binary_mask):
+        for polygon in self.polygon_manager.polygons.values():
+            if not polygon.is_closed:
+                continue
+
+            mask_area = np.count_nonzero(binary_mask)
+            if mask_area == 0:
+                polygon.is_inside = False
+                continue
+
+            poly_mask = np.zeros(binary_mask.shape, dtype=np.uint8)
+            cv2.fillPoly(poly_mask, [np.array(polygon.points, dtype=np.int32)], 255)
+            intersect_mask = cv2.bitwise_and(binary_mask, poly_mask)
+            intersect_area = np.count_nonzero(intersect_mask)
+
+            if intersect_area / mask_area >= 0.7:
+                if not polygon.is_inside:
+                    polygon.hit_count += 1
+                    polygon.is_inside = True
+            elif intersect_area / mask_area >= 0.5 and polygon.is_inside:
+                polygon.is_inside = True
+            else:
+                polygon.is_inside = False
 
 
 
@@ -460,6 +546,9 @@ class Polygon:
         self.color = color
         self.name = name
         self.is_closed = False
+        self.hit_count = 0
+        self.hit_time = 0
+        self.is_inside = False
     
     def add_point(self, point):
         if not self.is_closed:
@@ -501,6 +590,28 @@ class PolygonManager:
         for polygon in self.polygons.values():
             polygon.draw(frame)
 
+    def move_all_polygons(self, dx, dy):
+        for polygon in self.polygons.values():
+            if polygon.is_closed:
+                polygon.points = [(x + dx, y + dy) for x, y in polygon.points]
+    
+    def rotate_all_polygons(self, theta):
+        for polygon in self.polygons.values():
+            if polygon.is_closed and len(polygon.points) > 2:
+
+                points = np.array(polygon.points, dtype=np.float32)
+                cx, cy = np.mean(points, axis=0)
+
+                cos_theta = np.cos(theta)
+                sin_theta = np.sin(theta)
+                new_points = []
+                for x, y in points:
+                    x_new = cx + (x - cx) * cos_theta - (y - cy) * sin_theta
+                    y_new = cy + (x - cx) * sin_theta + (y - cy) * cos_theta
+
+                    new_points.append((x_new, y_new))
+                polygon.points = new_points
+
 
 
 class MainWindow(QMainWindow):
@@ -508,6 +619,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("mice detection")
         self.setWindowIcon(QIcon("assets/mouse.png"))
+        self.fps = 30
 
         self.stack = QStackedWidget()
         self.video_path = None
@@ -544,11 +656,16 @@ class MainWindow(QMainWindow):
 
     def get_video_path(self):
         return self.video_path
+    
+    def set_fps(self, fps):
+        self.fps = fps
+
+    def get_fps(self):
+        return self.fps
 
 
 
 def main():
-    print(tf.__version__)
     app = QApplication(sys.argv)
 
     try:
