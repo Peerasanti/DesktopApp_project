@@ -244,21 +244,18 @@ class PageTwo(QWidget):
 
         self.create_polygon_table()
 
-        table_layout = QVBoxLayout()
-        table_layout.addWidget(self.polygon_table)
-
         self.back_button = QPushButton("⬅️ ย้อนกลับ")
         self.back_button.clicked.connect(self.on_back_button_clicked)
 
         self.summary_button = QPushButton("📊 สรุปผล")
 
         button_layout = QHBoxLayout()
+        button_layout.addWidget(self.polygon_table)
         button_layout.addWidget(self.back_button)
         button_layout.addWidget(self.summary_button)
 
         main_layout = QVBoxLayout()
         main_layout.addWidget(self.video_label, stretch=3)
-        main_layout.addLayout(table_layout, stretch=1)
         main_layout.addLayout(button_layout)
 
         self.setLayout(main_layout)
@@ -276,7 +273,7 @@ class PageTwo(QWidget):
             if not self.drawing_polygon:
                 self.move_polygon()
         elif self.move_mode:  
-            move_distance = 5  
+            move_distance = 10
             if key == Qt.Key_W:  
                 self.polygon_manager.move_all_polygons(0, -move_distance)
             elif key == Qt.Key_S:  
@@ -304,7 +301,26 @@ class PageTwo(QWidget):
             self.next_frame()
     
     def edit_polygon(self, name):
-        pass
+        polygon = self.polygon_manager.polygons.get(name)
+        if not polygon:
+            return
+
+        new_name, ok = QInputDialog.getText(self, "แก้ไขชื่อพื้นที่", "กรุณาตั้งชื่อใหม่", text=polygon.name)
+        if not ok or not new_name.strip():
+            return
+
+        new_color = QColorDialog.getColor(QColor(polygon.color[2], polygon.color[1], polygon.color[0]), self)
+        if not new_color.isValid():
+            return
+
+        if new_name != name:
+            self.polygon_manager.polygons[new_name] = self.polygon_manager.polygons.pop(name)
+            polygon.name = new_name
+
+        polygon.color = (new_color.blue(), new_color.green(), new_color.red())
+
+        self.update_polygon_table()
+        self.next_frame()
     
     def update_polygon_table(self):
         polygons = self.polygon_manager.polygons
@@ -563,9 +579,9 @@ class Polygon:
             pts = np.array(self.points, dtype=np.int32)
             cv2.polylines(frame, [pts], isClosed=self.is_closed, color=self.color, thickness=thickness)
         for x, y in self.points:
-            cv2.circle(frame, (x, y), 3, (255, 0, 0), -1)
+            cv2.circle(frame, (int(x), int(y)), 3, (255, 0, 0), -1)
         if self.points:
-            cv2.putText(frame, self.name, self.points[0], cv2.FONT_HERSHEY_SIMPLEX, 0.6, self.color, 2)
+            cv2.putText(frame, self.name, (int(self.points[0][0]), int(self.points[0][1])), cv2.FONT_HERSHEY_SIMPLEX, 0.6, self.color, 2)
 
 
 
@@ -596,21 +612,36 @@ class PolygonManager:
                 polygon.points = [(x + dx, y + dy) for x, y in polygon.points]
     
     def rotate_all_polygons(self, theta):
+        centers = []
         for polygon in self.polygons.values():
-            if polygon.is_closed and len(polygon.points) > 2:
+            if polygon.is_closed and polygon.points:
+                pts = np.array(polygon.points, dtype=np.float32)
+                cx, cy = np.mean(pts, axis=0)
+                centers.append((cx, cy))
 
-                points = np.array(polygon.points, dtype=np.float32)
-                cx, cy = np.mean(points, axis=0)
+        if not centers:
+            return
 
-                cos_theta = np.cos(theta)
-                sin_theta = np.sin(theta)
+        global_cx = np.mean([c[0] for c in centers])
+        global_cy = np.mean([c[1] for c in centers])
+
+        cos_theta = np.cos(theta)
+        sin_theta = np.sin(theta)
+
+        for polygon in self.polygons.values():
+            if polygon.is_closed and polygon.points:
                 new_points = []
-                for x, y in points:
-                    x_new = cx + (x - cx) * cos_theta - (y - cy) * sin_theta
-                    y_new = cy + (x - cx) * sin_theta + (y - cy) * cos_theta
+                for x, y in polygon.points:
+                    x_shifted = x - global_cx
+                    y_shifted = y - global_cy
 
+                    x_rot = x_shifted * cos_theta - y_shifted * sin_theta
+                    y_rot = x_shifted * sin_theta + y_shifted * cos_theta
+
+                    x_new = x_rot + global_cx
+                    y_new = y_rot + global_cy
                     new_points.append((x_new, y_new))
-                polygon.points = new_points
+            polygon.points = new_points
 
 
 
