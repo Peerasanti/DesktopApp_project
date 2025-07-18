@@ -15,6 +15,8 @@ from PyQt5.QtWidgets import ( QApplication, QMainWindow, QLabel, QWidget, QVBoxL
 from PyQt5.QtCore import Qt, QTimer, QSize
 from PyQt5.QtGui import QIcon, QPixmap, QImage, QFont, QColor, QPainter
 
+from db import initialize_database, log_polygon_event
+
 class IPCameraDialog(QDialog):
     def __init__(self):
         super().__init__()
@@ -213,9 +215,8 @@ class PageTwo(QWidget):
         self.main_window = main_window
         self.setFocusPolicy(Qt.StrongFocus)
         self.move_mode = False
-        screen = QApplication.primaryScreen()
-        screen = QDesktopWidget().availableGeometry()
-        # self.setFixedSize(screen.width(), screen.height())
+        self.is_camera = False
+        self.setup_mode = True
         self.setFixedSize(1400, 950)
 
         self.is_playing = False
@@ -325,7 +326,7 @@ class PageTwo(QWidget):
             name_item = QTableWidgetItem(name)
             color_item = QTableWidgetItem()
             hit_count_item = QTableWidgetItem(str(polygon.hit_count))
-            hit_time_item = QTableWidgetItem(str(polygon.hit_time))
+            hit_time_item = QTableWidgetItem(str(round(polygon.hit_time, 2)) + " วินาที")
 
             color = polygon.color
             rgb_color = (color[2], color[1], color[0])
@@ -551,8 +552,11 @@ class PageTwo(QWidget):
                 if not polygon.is_inside:
                     polygon.hit_count += 1
                     polygon.is_inside = True
-            elif intersect_area / mask_area >= 0.5 and polygon.is_inside:
-                polygon.is_inside = True
+                if self.fps > 0:  
+                    polygon.hit_time += self.process_every_n / self.fps
+            elif intersect_area / mask_area >= 0.6 and polygon.is_inside:
+                if self.fps > 0:
+                    polygon.hit_time += self.process_every_n / self.fps
             else:
                 polygon.is_inside = False
 
