@@ -1,2 +1,2 @@
 
-        painter.setPen(QColor("green"))
+                self.next_frame()
