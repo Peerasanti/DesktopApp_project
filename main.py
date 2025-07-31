@@ -5,6 +5,7 @@ import os
 os.environ["TF_ENABLE_ONEDNN_OPTS"] = "1"
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
+import sqlite3
 import tensorflow as tf
 import cv2
 import numpy as np
@@ -220,12 +221,13 @@ class PageTwo(QWidget):
         self.move_mode = False
         self.is_camera = False
         self.setFixedSize(1400, 950)
+        self.experiment_id = "experiment_001"
 
         self.is_playing = False
         self.cap = None
         self.last_frame = None
         self.frame_count = 0
-        self.process_every_n = 4
+        self.process_every_n = 3
         self.hide_ui = False
 
         self.model = tf.keras.models.load_model("model/model_for_rat_V2.keras", safe_mode=False)
@@ -264,7 +266,7 @@ class PageTwo(QWidget):
 
     def keyPressEvent(self, event):
         key = event.key()
-        if key == Qt.Key_Z:
+        if key == Qt.Key_Z and not self.drawing_polygon:
             self.start_drawing()
         elif key == Qt.Key_Space:
             self.on_label_click()
@@ -273,6 +275,10 @@ class PageTwo(QWidget):
         elif key == Qt.Key_M:
             if not self.drawing_polygon:
                 self.move_polygon()
+        elif key == Qt.Key_N:
+            self.change_experiment_id()
+        elif key == Qt.Key_C:
+            self.clear_all_data()
         elif self.move_mode:
             move_distance = 10
             if key == Qt.Key_W:
@@ -290,6 +296,16 @@ class PageTwo(QWidget):
             self.next_frame()
         else:
             super().keyPressEvent(event)
+    
+    def change_experiment_id(self):
+        self.experiment_id, ok = QInputDialog.getText(self, "แก้ไขรหัสการทดลอง", "กรุณาตั้งรหัส", text=self.experiment_id)
+        if not ok or not self.experiment_id.strip():
+            return
+        
+    def clear_all_data(self):
+        self.polygon_manager.polygons = {}
+        self.update_polygon_table()
+        self.next_frame()
 
     def move_polygon(self):
         self.move_mode = not self.move_mode
@@ -491,18 +507,25 @@ class PageTwo(QWidget):
         painter.setPen(QColor(0, 255, 128))
         font = QFont("Segoe UI", 14)
         painter.setFont(font)
+        format_time = f"Time: {self.format_time()}"
         if not self.hide_ui:
-            fps_text = f"FPS: {self.fps:.1f}"
-            stop = f"(Space) to Stop"
-            move_mode = f"(M) Move Mode"
-            move = f"(W, A, S, D) to Move"
-            rotate = f"(Q, E) to Rotate"
-            painter.drawText(10, 80, fps_text)
-            painter.drawText(10, 110, stop)
-            painter.drawText(10, 140, move_mode)
+            painter.drawText(10, 60, f"ID: {self.experiment_id}")
+            painter.drawText(10, 110, f"FPS: {self.fps:.1f}")
+            painter.drawText(10, 140, format_time)
+            painter.drawText(10, 170, f"(Space) Play/Pause")
+            painter.drawText(10, 200, f"(Z) Draw Mode")
+            painter.drawText(10, 230, f"(M) Move Mode")
+            painter.drawText(10, 260, f"(N) Change Experiment ID")
+            painter.drawText(10, 290, f"(H) Hide UI")
+            painter.drawText(10, 330, f"(C) Clear All!")
             if self.move_mode:
-                painter.drawText(10, 170, move)
-                painter.drawText(10, 200, rotate)
+                painter.drawText(10, 400, f"Moving Polygon ...")
+                painter.drawText(10, 430, f"(W, A, S, D) to Move")
+                painter.drawText(10, 460, f"(Q, E) to Rotate")
+            elif self.drawing_polygon:
+                painter.drawText(10, 400, f"Drawing Polygon ...")
+                painter.drawText(10, 430, f"(Left Click) to Draw")
+                painter.drawText(10, 460, f"(Right Click) to Close")
         painter.end()
 
         pixmap = QPixmap.fromImage(qimg).scaled(
@@ -510,6 +533,12 @@ class PageTwo(QWidget):
         )
 
         self.video_label.setPixmap(pixmap)
+    
+    def format_time(self):
+        seconds = int(self.frame_count // self.fps)
+        minutes = seconds // 60  
+        remaining_seconds = seconds % 60  
+        return f"{minutes}:{remaining_seconds:02d}"
 
     def start_drawing(self):
         name, ok = QInputDialog.getText(self, "ชื่อพื้นที่", "กรุณาตั้งชื่อ")
