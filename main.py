@@ -13,11 +13,11 @@ import matplotlib.pyplot as plt
 from PyQt5.QtWidgets import ( QApplication, QMainWindow, QLabel, QWidget, QVBoxLayout, 
                              QStackedWidget, QPushButton, QFileDialog, QDialog, QHBoxLayout, 
                              QFormLayout, QLineEdit, QDialogButtonBox, QDesktopWidget, QInputDialog,
-                             QColorDialog, QTableWidget, QTableWidgetItem, QHeaderView )
+                             QColorDialog, QTableWidget, QTableWidgetItem, QHeaderView, QMessageBox )
 from PyQt5.QtCore import Qt, QTimer, QSize
 from PyQt5.QtGui import QIcon, QPixmap, QImage, QFont, QColor, QPainter
 
-# from db import initialize_database, log_polygon_event
+# from db import 
 
 class IPCameraDialog(QDialog):
     def __init__(self):
@@ -257,6 +257,8 @@ class PageTwo(QWidget):
         self.back_button.clicked.connect(self.on_back_button_clicked)
 
         self.summary_button = QPushButton("📊 สรุปผล")
+        self.summary_button.clicked.connect(self.submit_summary)
+        
 
         button_layout = QHBoxLayout()
         button_layout.addWidget(self.polygon_table)
@@ -614,6 +616,17 @@ class PageTwo(QWidget):
                     polygon.hit_time += self.process_every_n / self.fps
             else:
                 polygon.is_inside = False
+    
+    def submit_summary(self):
+
+        reply = QMessageBox.question(self, "ยืนยันการจบการทดลอง", 
+                                     "คุณต้องการจบการทดลองและบันทึกข้อมูลหรือไม่?",
+                                     QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+
+        if reply == QMessageBox.Yes:
+            self.main_window.switch_to_page(2)
+        else:
+            pass
 
 
 
