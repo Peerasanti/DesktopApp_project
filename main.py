@@ -9,6 +9,7 @@ import sqlite3
 import tensorflow as tf
 import cv2
 import numpy as np
+import matplotlib.pyplot as plt
 from PyQt5.QtWidgets import ( QApplication, QMainWindow, QLabel, QWidget, QVBoxLayout, 
                              QStackedWidget, QPushButton, QFileDialog, QDialog, QHBoxLayout, 
                              QFormLayout, QLineEdit, QDialogButtonBox, QDesktopWidget, QInputDialog,
@@ -48,7 +49,7 @@ class PageOne(QWidget):
         self.cap = None  
         self.is_playing = False
 
-        self.setFixedSize(650, 660)  
+        self.setFixedSize(650, 700)  
 
         self.header = QLabel("🐭 Mice Detection Program")
         self.header.setAlignment(Qt.AlignCenter)
@@ -79,6 +80,9 @@ class PageOne(QWidget):
         self.clear = QPushButton("❌ ล้างข้อมูล")
         self.clear.clicked.connect(self.clear_data)
 
+        self.switch_page = QPushButton("ไปยังหน้าสรุปข้อมูล")
+        self.switch_page.clicked.connect(self.switch_to_summary_page)
+
         btn_layout = QHBoxLayout()
         btn_layout.addWidget(self.button)
         btn_layout.addWidget(self.camera)
@@ -92,6 +96,7 @@ class PageOne(QWidget):
         center_layout.addWidget(self.status_label)
         center_layout.addLayout(btn_layout)
         center_layout.addLayout(action_layout)
+        center_layout.addWidget(self.switch_page)
         center_layout.setAlignment(Qt.AlignCenter)
 
         main_layout = QVBoxLayout()
@@ -209,6 +214,9 @@ class PageOne(QWidget):
         self.video_path = None
         self.cap = None
         self.is_playing = False
+
+    def switch_to_summary_page(self):
+        self.main_window.switch_to_page(2)
 
 
 
@@ -698,6 +706,27 @@ class PolygonManager:
 
 
 
+class PageThree(QWidget):
+    def __init__(self, stack, main_window):
+        super().__init__()
+        self.stack = stack
+        self.main_window = main_window
+        self.setFixedSize(1400, 950)
+
+        self.switch_page = QPushButton("กลับไปยังหน้าแรก")
+        self.switch_page.clicked.connect(self.switch_to_home_page)
+
+        self.layout = QVBoxLayout()
+        self.layout.addWidget(self.switch_page)
+        self.setLayout(self.layout)
+
+    def switch_to_home_page(self):
+        self.main_window.switch_to_page(0)
+
+        
+
+
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -710,9 +739,11 @@ class MainWindow(QMainWindow):
 
         self.page1 = PageOne(self.stack, self)
         self.page2 = PageTwo(self.stack, self)
+        self.page3 = PageThree(self.stack, self)
 
         self.stack.addWidget(self.page1)
         self.stack.addWidget(self.page2)
+        self.stack.addWidget(self.page3)
 
         self.setCentralWidget(self.stack)
 
