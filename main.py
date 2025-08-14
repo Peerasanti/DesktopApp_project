@@ -15,7 +15,7 @@ from PyQt5.QtWidgets import ( QApplication, QMainWindow, QLabel, QWidget, QVBoxL
                              QFormLayout, QLineEdit, QDialogButtonBox, QDesktopWidget, QInputDialog,
                              QColorDialog, QTableWidget, QTableWidgetItem, QHeaderView, QMessageBox,
                              QComboBox, QSlider, QProgressBar, QScrollArea, QSizePolicy, QTextEdit)
-from PyQt5.QtCore import Qt, QTimer, QSize, QDateTime
+from PyQt5.QtCore import Qt, QTimer, QSize, QDateTime, QLocale
 from PyQt5.QtGui import QIcon, QPixmap, QImage, QFont, QColor, QPainter
 
 from db import DatabaseManager 
@@ -76,7 +76,7 @@ class PageOne(QWidget):
         self.camera.clicked.connect(self.use_camera)
 
         self.submit = QPushButton("✅ ยืนยัน")
-        self.submit.clicked.connect(self.check_path)
+        self.submit.clicked.connect(self.show_experiment_setup)
 
         self.clear = QPushButton("❌ ล้างข้อมูล")
         self.clear.clicked.connect(self.clear_data)
@@ -194,17 +194,31 @@ class PageOne(QWidget):
 
             self.label.setPixmap(pixmap)
 
-    def check_path(self):
-        if self.video_path is not None:
-            self.main_window.set_fps(self.fps)
-            self.main_window.set_video_path(self.video_path)
-            self.main_window.switch_to_page(1)
-            self.timer.stop()
-            self.is_playing = False
-            self.status_label.setText("⏸️ วิดีโอถูกหยุด")
-        else:
+    def show_experiment_setup(self):
+        if self.video_path is None:
             self.label.setText("❌ ยังไม่ได้เลือกไฟล์วิดีโอหรือกล้อง")
             return
+
+        dialog = ExperimentSetupDialog(self.main_window.db, self)
+        if dialog.exec_() == QDialog.Accepted:
+            experiment_type_id, name, date, detail = dialog.get_experiment_data()
+            if experiment_type_id == 0:
+                QMessageBox.warning(self, "ข้อผิดพลาด", "กรุณาเลือกประเภทการทดลอง!")
+                return
+            experiment_id = self.main_window.db.add_experiment(experiment_type_id, name, date, detail, self.video_path)
+            if experiment_id:
+                self.main_window.set_experiment_name(name)
+                self.main_window.set_experiment_id(experiment_id)
+                self.main_window.set_fps(self.fps)
+                self.main_window.set_video_path(self.video_path)
+                self.main_window.switch_to_page(1)
+                self.timer.stop()
+                self.is_playing = False
+                self.status_label.setText("⏸️ วิดีโอถูกหยุด")
+            else:
+                QMessageBox.warning(self, "ข้อผิดพลาด", "ไม่สามารถบันทึกการทดลองได้ กรุณาลองใหม่!")
+        else:
+            self.label.setText("🎥 เลือกไฟล์วิดีโอหรือกล้อง")
 
     def clear_data(self):
         if self.cap:
@@ -226,14 +240,15 @@ class ExperimentSetupDialog(QDialog):
         super().__init__(parent)
         self.db = db
         self.setWindowTitle("ตั้งค่าการทดลอง")
-        self.setModal(True)  # ทำให้เป็น modal dialog
-        self.setFixedSize(300, 200)
+        self.setModal(True)  
+        self.setFixedSize(550, 400)
 
         self.name_input = QLineEdit(self)
         self.date_input = QLineEdit(self)
-        self.date_input.setText(QDateTime.currentDateTime().toString("yyyy-MM-dd HH:mm:ss"))
+        self.date_input.setText(QLocale(QLocale.English).toString(QDateTime.currentDateTime(), "yyyy-MM-dd HH:mm:ss"))
         self.type_combo = QComboBox(self)
-        self.detail_note_input = QTextEdit(self)
+        self.detail = QTextEdit(self)
+        self.detail.setFixedHeight(80)
 
         experiment_types = self.db.get_experiment_types()
         self.type_combo.addItem("เลือกประเภทการทดลอง", 0)
@@ -241,9 +256,10 @@ class ExperimentSetupDialog(QDialog):
             self.type_combo.addItem(type_name, type_id)
 
         layout = QFormLayout()
-        layout.addRow("ชื่อการทดลอง:", self.name_input)
         layout.addRow("วันที่:", self.date_input)
+        layout.addRow("ชื่อการทดลอง:", self.name_input)
         layout.addRow("ประเภทการทดลอง:", self.type_combo)
+        layout.addRow("รายละเอียดการทดลอง:", self.detail)
 
         button_layout = QHBoxLayout()
         ok_button = QPushButton("ยืนยัน")
@@ -259,6 +275,15 @@ class ExperimentSetupDialog(QDialog):
         ok_button.clicked.connect(self.accept)
         cancel_button.clicked.connect(self.reject)
 
+    def get_experiment_data(self):
+        experiment_type_id = self.type_combo.currentData()
+        name = self.name_input.text()
+        date = self.date_input.text()
+        detail = self.detail.toPlainText()
+        if not name: 
+            raise ValueError("ชื่อการทดลองต้องไม่ว่าง")
+        return experiment_type_id, name, date, detail
+
 
 
 class PageTwo(QWidget):
@@ -270,7 +295,6 @@ class PageTwo(QWidget):
         self.move_mode = False
         self.is_camera = False
         self.setFixedSize(1400, 950)
-        self.experiment_id = "experiment_001"
 
         self.is_playing = False
         self.cap = None
@@ -327,7 +351,7 @@ class PageTwo(QWidget):
             if not self.drawing_polygon:
                 self.move_polygon()
         elif key == Qt.Key_N:
-            self.change_experiment_id()
+            self.change_experiment_name()
         elif key == Qt.Key_C:
             self.clear_all_data()
         elif self.move_mode:
@@ -348,9 +372,12 @@ class PageTwo(QWidget):
         else:
             super().keyPressEvent(event)
     
-    def change_experiment_id(self):
-        self.experiment_id, ok = QInputDialog.getText(self, "แก้ไขรหัสการทดลอง", "กรุณาตั้งรหัส", text=self.experiment_id)
-        if not ok or not self.experiment_id.strip():
+    def change_experiment_name(self):
+        self.experiment_name, ok = QInputDialog.getText(self, "แก้ไขรหัสการทดลอง", "กรุณาตั้งรหัส", text=self.experiment_name)
+        if not ok or not self.experiment_name.strip():
+            return
+        experiment_id = self.experiment_id  
+        if self.main_window.db.update_experiment_name(experiment_id, self.experiment_name):
             return
         
     def clear_all_data(self):
@@ -470,6 +497,8 @@ class PageTwo(QWidget):
             return False
 
     def update_video(self):
+        self.experiment_name = self.main_window.get_experiment_name()
+        self.experiment_id = self.main_window.get_experiment_id()
         self.fps = self.main_window.get_fps()
         self.video_path = self.main_window.get_video_path()
         if self.video_path is not None:
@@ -560,7 +589,7 @@ class PageTwo(QWidget):
         painter.setFont(font)
         format_time = f"Time: {self.format_time()}"
         if not self.hide_ui:
-            painter.drawText(10, 60, f"ID: {self.experiment_id}")
+            painter.drawText(10, 60, f"ID name: {self.experiment_name}")
             painter.drawText(10, 110, f"FPS: {self.fps:.1f}")
             painter.drawText(10, 140, format_time)
             painter.drawText(10, 170, f"(Space) Play/Pause")
@@ -831,6 +860,18 @@ class MainWindow(QMainWindow):
 
     def get_fps(self):
         return self.fps
+    
+    def set_experiment_name(self, experiment_name):
+        self.experiment_name = experiment_name
+
+    def get_experiment_name(self):
+        return self.experiment_name
+    
+    def set_experiment_id(self, experiment_id):
+        self.experiment_id = experiment_id
+
+    def get_experiment_id(self):
+        return self.experiment_id
 
 
 

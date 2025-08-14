@@ -17,7 +17,7 @@ class DatabaseManager:
         self.conn.execute("""
             CREATE TABLE IF NOT EXISTS experiment_type (
                 experiment_type_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                type_name TEXTs
+                type_name TEXT UNIQUE
             )
         """)
         # add types of experiment in experiment_type table
@@ -119,6 +119,28 @@ class DatabaseManager:
         except sqlite3.Error as e:
             self.conn.rollback()
             print(f"Error saving raw data: {e}")
+
+    def get_experiment_types(self):
+        try:
+            self.cursor.execute("SELECT * FROM experiment_type")
+            return self.cursor.fetchall()
+        except sqlite3.Error as e:
+            print(f"Error fetching experiment types: {e}")
+            return []
+    
+    def update_experiment_name(self, experiment_id, new_name):
+        try:
+            self.cursor.execute("""
+                UPDATE experiments 
+                SET name = ?
+                WHERE experiment_id = ?
+            """, (new_name, experiment_id))
+            self.conn.commit()
+            return True
+        except sqlite3.Error as e:
+            self.conn.rollback()
+            print(f"Error updating experiment name: {e}")
+            return False
         
     def close(self):
         if hasattr(self, 'conn') and self.conn:
