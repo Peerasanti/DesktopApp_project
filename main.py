@@ -13,11 +13,12 @@ import matplotlib.pyplot as plt
 from PyQt5.QtWidgets import ( QApplication, QMainWindow, QLabel, QWidget, QVBoxLayout, 
                              QStackedWidget, QPushButton, QFileDialog, QDialog, QHBoxLayout, 
                              QFormLayout, QLineEdit, QDialogButtonBox, QDesktopWidget, QInputDialog,
-                             QColorDialog, QTableWidget, QTableWidgetItem, QHeaderView, QMessageBox )
-from PyQt5.QtCore import Qt, QTimer, QSize
+                             QColorDialog, QTableWidget, QTableWidgetItem, QHeaderView, QMessageBox,
+                             QComboBox, QSlider, QProgressBar, QScrollArea, QSizePolicy, QTextEdit)
+from PyQt5.QtCore import Qt, QTimer, QSize, QDateTime
 from PyQt5.QtGui import QIcon, QPixmap, QImage, QFont, QColor, QPainter
 
-# from db import 
+from db import DatabaseManager 
 
 class IPCameraDialog(QDialog):
     def __init__(self):
@@ -217,6 +218,46 @@ class PageOne(QWidget):
 
     def switch_to_summary_page(self):
         self.main_window.switch_to_page(2)
+
+
+
+class ExperimentSetupDialog(QDialog):
+    def __init__(self, db, parent=None):
+        super().__init__(parent)
+        self.db = db
+        self.setWindowTitle("ตั้งค่าการทดลอง")
+        self.setModal(True)  # ทำให้เป็น modal dialog
+        self.setFixedSize(300, 200)
+
+        self.name_input = QLineEdit(self)
+        self.date_input = QLineEdit(self)
+        self.date_input.setText(QDateTime.currentDateTime().toString("yyyy-MM-dd HH:mm:ss"))
+        self.type_combo = QComboBox(self)
+        self.detail_note_input = QTextEdit(self)
+
+        experiment_types = self.db.get_experiment_types()
+        self.type_combo.addItem("เลือกประเภทการทดลอง", 0)
+        for type_id, type_name in experiment_types:
+            self.type_combo.addItem(type_name, type_id)
+
+        layout = QFormLayout()
+        layout.addRow("ชื่อการทดลอง:", self.name_input)
+        layout.addRow("วันที่:", self.date_input)
+        layout.addRow("ประเภทการทดลอง:", self.type_combo)
+
+        button_layout = QHBoxLayout()
+        ok_button = QPushButton("ยืนยัน")
+        cancel_button = QPushButton("ยกเลิก")
+        button_layout.addWidget(ok_button)
+        button_layout.addWidget(cancel_button)
+
+        main_layout = QVBoxLayout()
+        main_layout.addLayout(layout)
+        main_layout.addLayout(button_layout)
+        self.setLayout(main_layout)
+
+        ok_button.clicked.connect(self.accept)
+        cancel_button.clicked.connect(self.reject)
 
 
 
@@ -738,8 +779,6 @@ class PageThree(QWidget):
 
         
 
-
-
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -749,6 +788,8 @@ class MainWindow(QMainWindow):
 
         self.stack = QStackedWidget()
         self.video_path = None
+
+        self.db = DatabaseManager()
 
         self.page1 = PageOne(self.stack, self)
         self.page2 = PageTwo(self.stack, self)

@@ -2,12 +2,6 @@ import sqlite3
 import os
 import datetime
 
-# BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-# DB_PATH = os.path.join(BASE_DIR, "database/data.db")
-
-# conn = sqlite3.connect(DB_PATH)
-# cursor = conn.cursor()
-
 class DatabaseManager:
     def __init__(self):
         self.base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -23,8 +17,14 @@ class DatabaseManager:
         self.conn.execute("""
             CREATE TABLE IF NOT EXISTS experiment_type (
                 experiment_type_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                type_name TEXT
+                type_name TEXTs
             )
+        """)
+        # add types of experiment in experiment_type table
+        self.cursor.execute("""
+            INSERT OR IGNORE INTO experiment_type (type_name) VALUES 
+            ('Rat Tracking'), 
+            ('Mouse Tracking')
         """)
         # experiments table
         self.conn.execute("""
