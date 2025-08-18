@@ -44,6 +44,7 @@ class DatabaseManager:
                 area_id INTEGER PRIMARY KEY AUTOINCREMENT,
                 experiment_id INTEGER,
                 area_name TEXT,
+                color TEXT,
                 hit_count INTEGER,
                 total_time REAL,
                 area_point TEXT,
@@ -94,13 +95,13 @@ class DatabaseManager:
             print(f"Error adding experiment: {e}")
             return None
 
-    def save_area_summary(self, experiment_id, area_name, hit_count, total_time, area_point):
+    def save_area_summary(self, experiment_id, area_name, color, hit_count, total_time, area_point):
         """บันทึกข้อมูลสรุปของโซน"""
         try:
             self.cursor.execute("""
-                INSERT INTO area_summary (experiment_id, area_name, hit_count, total_time, area_point)
-                VALUES (?, ?, ?, ?, ?)
-            """, (experiment_id, area_name, hit_count, total_time, area_point))
+                INSERT INTO area_summary (experiment_id, area_name, color, hit_count, total_time, area_point)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (experiment_id, area_name, color, hit_count, total_time, area_point))
             self.conn.commit()
             return self.cursor.lastrowid
         except sqlite3.Error as e:

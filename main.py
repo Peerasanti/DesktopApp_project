@@ -41,6 +41,8 @@ class IPCameraDialog(QDialog):
     def get_ip(self):
         return self.ip_input.text()
 
+
+
 class PageOne(QWidget):
     def __init__(self, stack, main_window):
         super().__init__()
@@ -212,9 +214,7 @@ class PageOne(QWidget):
                 self.main_window.set_fps(self.fps)
                 self.main_window.set_video_path(self.video_path)
                 self.main_window.switch_to_page(1)
-                self.timer.stop()
-                self.is_playing = False
-                self.status_label.setText("⏸️ วิดีโอถูกหยุด")
+                self.clear_data()
             else:
                 QMessageBox.warning(self, "ข้อผิดพลาด", "ไม่สามารถบันทึกการทดลองได้ กรุณาลองใหม่!")
         else:
@@ -231,6 +231,7 @@ class PageOne(QWidget):
         self.is_playing = False
 
     def switch_to_summary_page(self):
+        self.clear_data()
         self.main_window.switch_to_page(2)
 
 
@@ -383,7 +384,6 @@ class PageTwo(QWidget):
     def clear_all_data(self):
         self.polygon_manager.polygons = {}
         self.update_polygon_table()
-        self.next_frame()
 
     def move_polygon(self):
         self.move_mode = not self.move_mode
@@ -475,6 +475,7 @@ class PageTwo(QWidget):
 
     def stop_video(self):
         self.timer.stop()
+        self.clear_all_data()
         if self.cap:
             self.cap.release()
             self.cap = None
@@ -688,12 +689,17 @@ class PageTwo(QWidget):
                 polygon.is_inside = False
     
     def submit_summary(self):
-
+        
         reply = QMessageBox.question(self, "ยืนยันการจบการทดลอง", 
                                      "คุณต้องการจบการทดลองและบันทึกข้อมูลหรือไม่?",
                                      QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
 
         if reply == QMessageBox.Yes:
+            experiment_id = self.experiment_id
+            for polygon in self.polygon_manager.polygons.values():
+                self.main_window.db.save_area_summary(experiment_id, polygon.name, str(polygon.color), polygon.hit_count, polygon.hit_time, str(polygon.points))
+
+            self.stop_video()
             self.main_window.switch_to_page(2)
         else:
             pass

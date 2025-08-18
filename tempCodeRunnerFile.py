@@ -1,2 +1,2 @@
 
-                self.next_frame()
+    cursor.execute("SELECT * FROM experiments")

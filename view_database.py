@@ -33,7 +33,7 @@ try:
     print("======================================")
     area_summaries = cursor.fetchall()
     for row in area_summaries:
-        print(f"ID: {row[0]}, Experiment ID: {row[1]}, Area Name: {row[2]}, Hit Count: {row[3]}, Total Time: {row[4]}, Area Point: {row[5]}")
+        print(f"ID: {row[0]}, Experiment ID: {row[1]}, Area Name: {row[2]}, Color: {row[3]}, Hit Count: {row[4]}, Total Time: {row[5]}, Area Point: {row[6]}")
 
     # 4. ดึงข้อมูลจากตาราง raw_data
     cursor.execute("SELECT * FROM raw_data")
