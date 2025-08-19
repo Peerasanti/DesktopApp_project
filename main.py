@@ -9,6 +9,7 @@ import sqlite3
 import tensorflow as tf
 import cv2
 import numpy as np
+from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
 from PyQt5.QtWidgets import ( QApplication, QMainWindow, QLabel, QWidget, QVBoxLayout, 
                              QStackedWidget, QPushButton, QFileDialog, QDialog, QHBoxLayout, 
@@ -857,15 +858,63 @@ class PageThree(QWidget):
         self.switch_page = QPushButton("กลับไปยังหน้าแรก")
         self.switch_page.clicked.connect(self.switch_to_home_page)
 
+        self.experiment_dropdown = self.create_experiment_dropdown()
+
         self.layout = QVBoxLayout()
+        self.layout.addWidget(self.experiment_dropdown)
         self.layout.addWidget(self.switch_page)
         self.setLayout(self.layout)
 
-    def switch_to_home_page(self):
-        self.main_window.switch_to_page(0)
+        self.refresh()
+    
+    def create_experiment_dropdown(self):
+        dropdown = QComboBox()
+        all_experiments = self.main_window.db.get_all_experiments()
+        dropdown.addItem("เลือกการทดลอง", 0)
+        for experiment in all_experiments:
+            dropdown.addItem(experiment[2], experiment[0])
 
+        return dropdown
+    
+    def refresh(self):
+        if hasattr(self, 'experiment_dropdown'):
+            self.layout.removeWidget(self.experiment_dropdown)
+            self.experiment_dropdown.deleteLater()
+        self.experiment_dropdown = self.create_experiment_dropdown()
+
+        if self.main_window.get_experiment_id() is not None:
+            experiment_id = self.main_window.get_experiment_id()
+            index = self.experiment_dropdown.findData(experiment_id)
+            if index != -1:
+                self.experiment_dropdown.setCurrentIndex(index)
+                self.on_experiment_change(index)
+            else:
+                self.experiment_dropdown.setCurrentIndex(0)
+        else:
+            self.experiment_dropdown.setCurrentIndex(0)
+        
+        self.layout.insertWidget(0, self.experiment_dropdown)
+        self.experiment_dropdown.currentIndexChanged.connect(self.on_experiment_change)
+    
+    def on_experiment_change(self, index):
+        if index > 0: 
+            selected_id = self.experiment_dropdown.itemData(index)  
+            area_summary = self.main_window.db.get_area_summary_by_experiment_id(selected_id)
+            raw_data = self.main_window.db.get_raw_data_by_experiment_id(selected_id)
+            if area_summary and raw_data:
+                print(f"Load Data success\n{area_summary}")  
+            else:
+                print("Area summary data not found")
+        else:
+            print("No experiment selected")
+    
+    def switch_to_home_page(self):
+        self.experiment_dropdown.setCurrentIndex(self.experiment_dropdown.findData(0))
+        self.main_window.set_experiment_id(None)
+        self.main_window.switch_to_page(0)
         
 
+        
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -875,6 +924,8 @@ class MainWindow(QMainWindow):
 
         self.stack = QStackedWidget()
         self.video_path = None
+        self.experiment_id = None
+        self.experiment_name = None
 
         self.db = DatabaseManager()
 
@@ -900,6 +951,9 @@ class MainWindow(QMainWindow):
 
         if index == 1 and isinstance(current_widget, PageTwo):
             current_widget.update_video()
+
+        if index == 2 and isinstance(current_widget, PageThree):  
+            current_widget.refresh()
 
     def center_window(self):
         window_rect = self.frameGeometry()

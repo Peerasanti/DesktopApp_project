@@ -158,6 +158,46 @@ class DatabaseManager:
             self.conn.rollback()
             print(f"Error updating area summary: {e}")
             return False
+    
+    def get_all_experiments(self):
+        try:
+            self.cursor.execute("SELECT * FROM experiments")
+            return self.cursor.fetchall()
+        except sqlite3.Error as e:
+            print(f"Error fetching experiments: {e}")
+            return []
+        
+    def get_all_area_summary(self):
+        try:
+            self.cursor.execute("SELECT * FROM area_summary")
+            return self.cursor.fetchall()
+        except sqlite3.Error as e:
+            print(f"Error fetching area summary: {e}")
+            return []
+    
+    def get_area_summary_by_experiment_id(self, experiment_id):
+        try:
+            self.cursor.execute("SELECT * FROM area_summary WHERE experiment_id = ?", (experiment_id,))
+            return self.cursor.fetchall()
+        except sqlite3.Error as e:
+            print(f"Error fetching area summary by experiment ID: {e}")
+            return []
+    
+    def get_all_raw_data(self):
+        try:
+            self.cursor.execute("SELECT * FROM raw_data")
+            return self.cursor.fetchall()
+        except sqlite3.Error as e:
+            print(f"Error fetching raw data: {e}")
+            return []
+    
+    def get_raw_data_by_experiment_id(self, experiment_id):
+        try:
+            self.cursor.execute("SELECT * FROM raw_data WHERE experiment_id = ?", (experiment_id,))
+            return self.cursor.fetchall()
+        except sqlite3.Error as e:
+            print(f"Error fetching raw data by experiment ID: {e}")
+            return []
         
     def close(self):
         if hasattr(self, 'conn') and self.conn:
