@@ -370,7 +370,6 @@ class PageTwo(QWidget):
                 self.polygon_manager.rotate_all_polygons(np.deg2rad(5))
             elif key == Qt.Key_E:
                 self.polygon_manager.rotate_all_polygons(np.deg2rad(-5))
-            self.next_frame()
         else:
             super().keyPressEvent(event)
     
@@ -384,7 +383,6 @@ class PageTwo(QWidget):
         
     def clear_all_data(self):
         self.polygon_manager.polygons = {}
-        self.update_polygon_table()
 
     def move_polygon(self):
         self.move_mode = not self.move_mode
@@ -392,8 +390,6 @@ class PageTwo(QWidget):
     def delete_polygon(self, name):
         if name in self.polygon_manager.polygons:
             del self.polygon_manager.polygons[name]
-            self.update_polygon_table()
-            self.next_frame()
 
     def edit_polygon(self, name):
         polygon = self.polygon_manager.polygons.get(name)
@@ -413,9 +409,6 @@ class PageTwo(QWidget):
             polygon.name = new_name
 
         polygon.color = (new_color.blue(), new_color.green(), new_color.red())
-
-        self.update_polygon_table()
-        self.next_frame()
 
     def update_polygon_table(self):
         polygons = self.polygon_manager.polygons
@@ -588,7 +581,7 @@ class PageTwo(QWidget):
 
         self.polygon_manager.draw_all(overlay_frame)
 
-        self.calculate_overlap(binary_mask)
+        self.calculate_overlap(binary_mask, center)
         if self.frame_count % int(self.fps) == 0:
             self.update_polygon_table()
 
@@ -659,8 +652,17 @@ class PageTwo(QWidget):
             self.active_started = False
             self.polygon_name = ""
             self.polygon_color = (0, 255, 0)
-            # self.update_polygon_table()
-            # self.next_frame()
+
+            if self.polygon_manager.active_polygon:  
+                polygon = self.polygon_manager.active_polygon
+                experiment_id = self.experiment_id
+                area_points = str(polygon.points)  
+                color_str = str(polygon.color) 
+
+                polygon_id = self.main_window.db.save_area_summary(experiment_id, polygon.name, color_str, polygon.hit_count, polygon.hit_time, area_points)
+                if polygon_id is not None:
+                    print(f"Polygon saved with ID: {polygon_id} Name : {polygon.name}")
+                    polygon.id = polygon_id
             return
 
         if event.button() == Qt.LeftButton:
@@ -671,9 +673,13 @@ class PageTwo(QWidget):
                     self.polygon_manager.new_polygon(name, color)
                     self.active_started = True
                 self.polygon_manager.add_point_to_active((x, y))
-                # self.next_frame()
 
-    def calculate_overlap(self, binary_mask):
+    def calculate_overlap(self, binary_mask, center):
+        experiment_id = self.experiment_id
+        best_area_id = None
+        best_area_name = None  
+        best_intersect_ratio = 0.0
+
         for polygon in self.polygon_manager.polygons.values():
             if not polygon.is_closed:
                 continue
@@ -687,18 +693,39 @@ class PageTwo(QWidget):
             cv2.fillPoly(poly_mask, [np.array(polygon.points, dtype=np.int32)], 255)
             intersect_mask = cv2.bitwise_and(binary_mask, poly_mask)
             intersect_area = np.count_nonzero(intersect_mask)
+            intersect_ratio = intersect_area / mask_area
 
-            if intersect_area / mask_area >= 0.7:
+            if intersect_ratio >= 0.7:
                 if not polygon.is_inside:
                     polygon.hit_count += 1
                     polygon.is_inside = True
                 if self.fps > 0:
                     polygon.hit_time += self.process_every_n / self.fps
-            elif intersect_area / mask_area >= 0.6 and polygon.is_inside:
+                if intersect_ratio > best_intersect_ratio:
+                    best_intersect_ratio = intersect_ratio
+                    best_area_id = polygon.id
+                    best_area_name = polygon.name  
+            elif intersect_ratio >= 0.6 and polygon.is_inside:
                 if self.fps > 0:
                     polygon.hit_time += self.process_every_n / self.fps
+                if intersect_ratio > best_intersect_ratio:
+                    best_intersect_ratio = intersect_ratio
+                    best_area_id = polygon.id
+                    best_area_name = polygon.name  
             else:
                 polygon.is_inside = False
+
+        if center:
+            time_stamp = round(self.frame_count / self.fps, 1)
+            self.raw_data.append({
+                'experiment_id': experiment_id,
+                'area_id': best_area_id,
+                'time_stamp': time_stamp,
+                'frame_count': self.frame_count,
+                'area_name': best_area_name,  
+                'rat_position_x': center[0],
+                'rat_position_y': center[1]
+            })
     
     def submit_summary(self):
         
@@ -707,9 +734,21 @@ class PageTwo(QWidget):
                                      QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
 
         if reply == QMessageBox.Yes:
-            experiment_id = self.experiment_id
             for polygon in self.polygon_manager.polygons.values():
-                self.main_window.db.save_area_summary(experiment_id, polygon.name, str(polygon.color), polygon.hit_count, polygon.hit_time, str(polygon.points))
+                if polygon.id is not None:  
+                    success = self.main_window.db.update_area_summary(polygon.id, polygon.name, str(polygon.color), polygon.hit_count, round(polygon.hit_time, 2), str(polygon.points))
+                    if not success:
+                        print(f"ไม่สามารถอัปเดตข้อมูล polygon {polygon.name} (ID: {polygon.id})")
+            
+            if self.raw_data:
+                data_to_insert = [
+                    (d['experiment_id'], d['area_id'] if d['area_id'] is not None else None, d['time_stamp'], d['frame_count'], d['area_name'] if d['area_name'] is not None else None, d['rat_position_x'], d['rat_position_y'])
+                    for d in self.raw_data
+                ]
+                success = self.main_window.db.save_raw_data_batch(data_to_insert)
+                if not success:
+                    QMessageBox.warning(self, "ข้อผิดพลาด", "ไม่สามารถบันทึก raw data ได้")
+                self.raw_data = []
 
             self.stop_video()
             self.main_window.switch_to_page(2)

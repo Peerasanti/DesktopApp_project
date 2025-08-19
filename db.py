@@ -109,17 +109,19 @@ class DatabaseManager:
             print(f"Error saving area summary: {e}")
             return None
 
-    def save_raw_data(self, experiment_id, area_id, time_stamp, frame_count, area_name, rat_position_x, rat_position_y):
+    def save_raw_data_batch(self, data):
         """บันทึกข้อมูลดิบ"""
         try:
-            self.cursor.execute("""
+            self.cursor.executemany("""
                 INSERT INTO raw_data (experiment_id, area_id, time_stamp, frame_count, area_name, rat_position_x, rat_position_y)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (experiment_id, area_id, time_stamp, frame_count, area_name, rat_position_x, rat_position_y))
+            """, data)
             self.conn.commit()
+            return True
         except sqlite3.Error as e:
             self.conn.rollback()
-            print(f"Error saving raw data: {e}")
+            print(f"Error saving raw data batch: {e}")
+            return False
 
     def get_experiment_types(self):
         try:
@@ -141,6 +143,20 @@ class DatabaseManager:
         except sqlite3.Error as e:
             self.conn.rollback()
             print(f"Error updating experiment name: {e}")
+            return False
+    
+    def update_area_summary(self, area_id, area_name, color, hit_count, total_time, area_point):
+        try:
+            self.cursor.execute("""
+                UPDATE area_summary 
+                SET area_name = ?, color = ?, hit_count = ?, total_time = ?, area_point = ?
+                WHERE area_id = ?
+            """, (area_name, color, hit_count, total_time, area_point, area_id))
+            self.conn.commit()
+            return True
+        except sqlite3.Error as e:
+            self.conn.rollback()
+            print(f"Error updating area summary: {e}")
             return False
         
     def close(self):
