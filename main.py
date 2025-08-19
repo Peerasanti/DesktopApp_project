@@ -311,6 +311,7 @@ class PageTwo(QWidget):
         self.mouse_pos = None
         self.polygon_name = ""
         self.polygon_color = (0, 255, 0)
+        self.raw_data = []
 
         self.video_label = QLabel("📹 เริ่มการตรวจตำแหน่ง")
         self.video_label.setAlignment(Qt.AlignCenter)
@@ -567,6 +568,17 @@ class PageTwo(QWidget):
         mask = cv2.resize(result, (scaled_size.width(), scaled_size.height()), interpolation=cv2.INTER_CUBIC)
         _, binary_mask = cv2.threshold(mask, 100, 255, cv2.THRESH_BINARY)
 
+        contours, _ = cv2.findContours(binary_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        center = None
+        if contours:
+            largest_contour = max(contours, key=cv2.contourArea)
+            M = cv2.moments(largest_contour)
+            if M["m00"] != 0:  
+                cX = int(M["m10"] / M["m00"])
+                cY = int(M["m01"] / M["m00"])
+                center = (cX, cY)
+                cv2.circle(frame_display, center, 5, (0, 0, 255), -1)
+
         green_layer = np.zeros((mask.shape[0], mask.shape[1], 3), dtype=np.uint8)
         green_layer[:, :] = (0, 255, 0)
         green_masked = cv2.bitwise_and(green_layer, green_layer, mask=binary_mask)
@@ -647,8 +659,8 @@ class PageTwo(QWidget):
             self.active_started = False
             self.polygon_name = ""
             self.polygon_color = (0, 255, 0)
-            self.update_polygon_table()
-            self.next_frame()
+            # self.update_polygon_table()
+            # self.next_frame()
             return
 
         if event.button() == Qt.LeftButton:
@@ -659,7 +671,7 @@ class PageTwo(QWidget):
                     self.polygon_manager.new_polygon(name, color)
                     self.active_started = True
                 self.polygon_manager.add_point_to_active((x, y))
-                self.next_frame()
+                # self.next_frame()
 
     def calculate_overlap(self, binary_mask):
         for polygon in self.polygon_manager.polygons.values():
@@ -708,6 +720,7 @@ class PageTwo(QWidget):
 
 class Polygon:
     def __init__(self, name, color):
+        self.id = None
         self.points = []
         self.color = color
         self.name = name
