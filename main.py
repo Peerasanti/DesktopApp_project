@@ -5,9 +5,12 @@ import os
 os.environ["TF_ENABLE_ONEDNN_OPTS"] = "1"
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
-import sqlite3
+import csv
 import tensorflow as tf
+from openpyxl import Workbook
+from openpyxl.worksheet.worksheet import Worksheet
 import cv2
+import re
 import numpy as np
 from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
@@ -15,7 +18,7 @@ from PyQt5.QtWidgets import ( QApplication, QMainWindow, QLabel, QWidget, QVBoxL
                              QStackedWidget, QPushButton, QFileDialog, QDialog, QHBoxLayout, 
                              QFormLayout, QLineEdit, QDialogButtonBox, QDesktopWidget, QInputDialog,
                              QColorDialog, QTableWidget, QTableWidgetItem, QHeaderView, QMessageBox,
-                             QComboBox, QSlider, QProgressBar, QScrollArea, QSizePolicy, QTextEdit)
+                             QComboBox, QTextEdit)
 from PyQt5.QtCore import Qt, QTimer, QSize, QDateTime, QLocale
 from PyQt5.QtGui import QIcon, QPixmap, QImage, QFont, QColor, QPainter
 
@@ -55,38 +58,46 @@ class PageOne(QWidget):
 
         self.setFixedSize(650, 700)  
 
-        self.header = QLabel("🐭 Mice Detection Program")
+        # Header
+        self.header = QLabel("Mice Detection Program")
         self.header.setAlignment(Qt.AlignCenter)
-        self.header.setFont(QFont("Arial", 24))
+        self.header.setFont(QFont("Arial", 26, QFont.Bold))
         self.header.setObjectName("Header")
 
-        self.label = QLabel("🎥 เลือกไฟล์วิดีโอหรือกล้อง")
+        # Video / Camera Display
+        self.label = QLabel("เลือกไฟล์วิดีโอหรือกล้อง")
         self.label.setAlignment(Qt.AlignCenter)
         self.label.setFixedSize(600, 400)
         self.label.setObjectName("VideoDisplay")
         self.label.mousePressEvent = self.on_label_click
 
+        # Status Label
         self.status_label = QLabel("⏳ รอการเลือกวิดีโอหรือกล้อง")
         self.status_label.setAlignment(Qt.AlignCenter)
-        self.status_label.setFixedSize(580, 50)  
-        self.status_label.move(10, 10)  
-        self.status_label.raise_()
+        self.status_label.setObjectName("StatusLabel")
 
-        self.button = QPushButton("📂 เลือกไฟล์วิดีโอ")
+        # Buttons
+        self.button = QPushButton("เลือกไฟล์วิดีโอ")
         self.button.clicked.connect(self.browse_video)
+        self.button.setObjectName("YellowButton")
 
-        self.camera = QPushButton("📷 ตรวจจับด้วยกล้อง")
+        self.camera = QPushButton("ตรวจจับด้วยกล้อง")
         self.camera.clicked.connect(self.use_camera)
+        self.camera.setObjectName("YellowButton")
 
-        self.submit = QPushButton("✅ ยืนยัน")
+        self.submit = QPushButton("เริ่มทดลอง")
         self.submit.clicked.connect(self.show_experiment_setup)
+        self.submit.setObjectName("GreenButton")
 
-        self.clear = QPushButton("❌ ล้างข้อมูล")
+        self.clear = QPushButton("ล้างข้อมูล")
         self.clear.clicked.connect(self.clear_data)
+        self.clear.setObjectName("RedButton")
 
         self.switch_page = QPushButton("ไปยังหน้าสรุปข้อมูล")
         self.switch_page.clicked.connect(self.switch_to_summary_page)
+        self.switch_page.setObjectName("MainButton")
 
+        # Layouts
         btn_layout = QHBoxLayout()
         btn_layout.addWidget(self.button)
         btn_layout.addWidget(self.camera)
@@ -94,13 +105,15 @@ class PageOne(QWidget):
         action_layout = QHBoxLayout()
         action_layout.addWidget(self.submit)
         action_layout.addWidget(self.clear)
+        action_layout.addWidget(self.switch_page)
 
         center_layout = QVBoxLayout()
         center_layout.addWidget(self.label)
         center_layout.addWidget(self.status_label)
+        center_layout.addSpacing(10)
         center_layout.addLayout(btn_layout)
+        center_layout.addSpacing(15)
         center_layout.addLayout(action_layout)
-        center_layout.addWidget(self.switch_page)
         center_layout.setAlignment(Qt.AlignCenter)
 
         main_layout = QVBoxLayout()
@@ -208,7 +221,7 @@ class PageOne(QWidget):
             if experiment_type_id == 0:
                 QMessageBox.warning(self, "ข้อผิดพลาด", "กรุณาเลือกประเภทการทดลอง!")
                 return
-            experiment_id = self.main_window.db.add_experiment(experiment_type_id, name, date, detail, self.video_path)
+            experiment_id = self.main_window.db.add_experiment(experiment_type_id, name, date, detail if detail is not None else "ไม่มีรายละเอียดการทดลอง", self.video_path)
             if experiment_id:
                 self.main_window.set_experiment_name(name)
                 self.main_window.set_experiment_id(experiment_id)
@@ -247,7 +260,11 @@ class ExperimentSetupDialog(QDialog):
 
         self.name_input = QLineEdit(self)
         self.date_input = QLineEdit(self)
-        self.date_input.setText(QLocale(QLocale.English).toString(QDateTime.currentDateTime(), "yyyy-MM-dd HH:mm:ss"))
+        self.date_input.setText(
+            QLocale(QLocale.English).toString(
+                QDateTime.currentDateTime(), "yyyy-MM-dd HH:mm:ss"
+            )
+        )
         self.type_combo = QComboBox(self)
         self.detail = QTextEdit(self)
         self.detail.setFixedHeight(80)
@@ -274,8 +291,20 @@ class ExperimentSetupDialog(QDialog):
         main_layout.addLayout(button_layout)
         self.setLayout(main_layout)
 
-        ok_button.clicked.connect(self.accept)
+        ok_button.clicked.connect(self.validate_and_accept)
         cancel_button.clicked.connect(self.reject)
+
+    def validate_and_accept(self):
+        name = self.name_input.text().strip()
+        experiment_type_id = self.type_combo.currentData()
+        if not name:
+            QMessageBox.warning(self, "ข้อมูลไม่ครบ", "กรุณากรอกชื่อการทดลองก่อนกด ยืนยัน")
+            return
+        
+        elif experiment_type_id == 0:
+            QMessageBox.warning(self, "ข้อมูลไม่ครบ", "กรุณาเลือกประเภทการทดลองก่อนกด ยืนยัน")
+            return
+        self.accept()
 
     def get_experiment_data(self):
         experiment_type_id = self.type_combo.currentData()
@@ -321,11 +350,13 @@ class PageTwo(QWidget):
 
         self.create_polygon_table()
 
-        self.back_button = QPushButton("⬅️ ย้อนกลับ")
+        self.back_button = QPushButton("ย้อนกลับ")
         self.back_button.clicked.connect(self.on_back_button_clicked)
+        self.back_button.setObjectName("YellowButton")
 
-        self.summary_button = QPushButton("📊 สรุปผล")
+        self.summary_button = QPushButton("สรุปผล")
         self.summary_button.clicked.connect(self.submit_summary)
+        self.summary_button.setObjectName("GreenButton")
         
 
         button_layout = QHBoxLayout()
@@ -452,7 +483,7 @@ class PageTwo(QWidget):
     def create_polygon_table(self):
         self.polygon_table = QTableWidget()
         self.polygon_table.setColumnCount(5)
-        self.polygon_table.setHorizontalHeaderLabels(["ชื่อ", "สี", "จำนวนครั้ง", "เวลาทั้งหมด", "การจัดการ"])
+        self.polygon_table.setHorizontalHeaderLabels(["ชื่อ Polygon", "สี", "จำนวนครั้ง", "เวลาทั้งหมด", "การจัดการ"])
         
         self.polygon_table.verticalHeader().setDefaultSectionSize(50)
 
@@ -854,18 +885,130 @@ class PageThree(QWidget):
         self.stack = stack
         self.main_window = main_window
         self.setFixedSize(1400, 950)
+        self.area_summary = None
+        self.raw_data = None
 
         self.switch_page = QPushButton("กลับไปยังหน้าแรก")
         self.switch_page.clicked.connect(self.switch_to_home_page)
+        self.switch_page.setObjectName("MainButton")
+
+        self.csv_export = QPushButton("Export to CSV")
+        self.csv_export.clicked.connect(self.export_to_csv)
+        self.csv_export.setObjectName("YellowButton")
+
+        self.excel_export = QPushButton("Export to Excel")
+        self.excel_export.clicked.connect(self.export_to_excel)
+        self.excel_export.setObjectName("YellowButton")
 
         self.experiment_dropdown = self.create_experiment_dropdown()
 
+        top_layout = QHBoxLayout()
+        top_layout.addWidget(self.experiment_dropdown, stretch=2)  
+        top_layout.addWidget(self.csv_export, stretch=1)
+        top_layout.addWidget(self.excel_export, stretch=1)
+
+        bottom_layout = QHBoxLayout()
+        bottom_layout.addStretch(1)
+        bottom_layout.addWidget(self.switch_page)
+        bottom_layout.addStretch(1)
+
         self.layout = QVBoxLayout()
-        self.layout.addWidget(self.experiment_dropdown)
-        self.layout.addWidget(self.switch_page)
+        self.layout.addLayout(top_layout)
+        self.layout.addStretch(1)  
+        self.layout.addLayout(bottom_layout)
+
         self.setLayout(self.layout)
 
         self.refresh()
+    
+    def sanitize_filename(self,filename):
+        invalid_chars = r'[<>:"|?*]'
+        sanitized = re.sub(invalid_chars, '_', filename)
+        sanitized = sanitized.strip().strip('.')
+        return sanitized
+    
+    def _write_csv(self, data, output_file, headers):
+        output_dir = os.path.dirname(output_file)
+        if output_dir and not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+        
+        try:
+            with open(output_file, 'w', newline='', encoding='utf-8') as csvfile:
+                writer = csv.writer(csvfile)
+                writer.writerow(headers)
+                for row in data:
+                    writer.writerow(row)
+        except OSError as e:
+            print(f"Error writing to CSV file {output_file}: {e}")
+            raise
+
+    def _write_excel(self, data, worksheet, headers):
+        if not isinstance(worksheet, Worksheet):
+            raise TypeError(f"Expected Worksheet object, got {type(worksheet).__name__} instead")
+        
+        try:
+            worksheet.append(headers)
+            for row in data:
+                worksheet.append(row)
+        except Exception as e:
+            print(f"Error writing to Excel worksheet {worksheet.title}: {e}")
+            raise
+    
+    def export_to_csv(self):
+        if not self.area_summary and not self.raw_data:
+            print("Not found area summary and rawdata")
+            return
+        
+        if self.area_summary :
+            summary_file = os.path.join('export', f"{self.current_experiment_date}_{self.current_experiment_name}_area_summary.csv")
+            summary_area_file = self.sanitize_filename(summary_file)
+            summary_headers = ['area_id', 'experiment_id', 'area_name', 'color', 'hit_count', 'total_time', 'area_point']
+            self._write_csv(self.area_summary, summary_area_file, summary_headers)
+            print(f"Exported area_summary to {summary_file}")
+
+        if self.raw_data:
+            rawdata_file = os.path.join('export', f"{self.current_experiment_date}_{self.current_experiment_name}_raw_data.csv")
+            rawdata_name_file = self.sanitize_filename(rawdata_file)
+            rawdata_headers = ['experiment_id', 'area_id', 'timestamp', 'frame_count', 'area_name', 'rat_position_x', 'rat_position_y']
+            self._write_csv(self.raw_data, rawdata_name_file, rawdata_headers)
+            print(f"Exported raw_data to {rawdata_file}")
+
+    def export_to_excel(self):
+        if not self.area_summary and not self.raw_data:
+            print("No data to export: both area_summary and raw_data are empty")
+            return
+
+        excel_file = os.path.join('export', f"{self.current_experiment_date}_{self.current_experiment_name}_data.xlsx")
+        excel_file_sanitized = self.sanitize_filename(excel_file)
+        output_dir = os.path.dirname(excel_file_sanitized)
+        if output_dir and not os.path.exists(output_dir):
+            os.makedirs(output_dir, exist_ok=True)
+
+        try:
+            workbook = Workbook()
+            default_sheet = workbook.active
+            if self.area_summary or self.raw_data:
+                workbook.remove(default_sheet)
+
+            if self.area_summary:
+                headers = ['area_id', 'experiment_id', 'area_name', 'color', 'hit_count', 'total_time', 'area_point']
+                ws_summary = workbook.create_sheet(title="Area Summary")
+                self._write_excel(self.area_summary, ws_summary, headers)
+
+            if self.raw_data:
+                headers = ['experiment_id', 'area_id', 'time_stamp', 'frame_count', 'area_name', 'rat_position_x', 'rat_position_y']
+                ws_raw_data = workbook.create_sheet(title="Raw Data")
+                self._write_excel(self.raw_data, ws_raw_data, headers)
+
+            if workbook.sheetnames:
+                workbook.save(excel_file_sanitized)
+                print(f"Exported data to {excel_file_sanitized}")
+            else:
+                print("No sheets created; Excel file not saved")
+
+        except Exception as e:
+            print(f"Error writing to Excel file {excel_file_sanitized}: {e}")
+            raise
     
     def create_experiment_dropdown(self):
         dropdown = QComboBox()
@@ -899,12 +1042,18 @@ class PageThree(QWidget):
     def on_experiment_change(self, index):
         if index > 0: 
             selected_id = self.experiment_dropdown.itemData(index)  
-            area_summary = self.main_window.db.get_area_summary_by_experiment_id(selected_id)
-            raw_data = self.main_window.db.get_raw_data_by_experiment_id(selected_id)
-            if area_summary and raw_data:
-                print(f"Load Data success\n{area_summary}")  
+            self.area_summary = self.main_window.db.get_area_summary_by_experiment_id(selected_id)
+            self.raw_data = self.main_window.db.get_raw_data_by_experiment_id(selected_id)
+            self.current_experiment_id = selected_id
+            experiment = self.main_window.db.get_experiment_by_id(selected_id)
+            self.current_experiment_name = experiment[2]
+            self.current_experiment_date = experiment[3]
+            if self.area_summary and self.raw_data:
+                print(f"\nLoad Data success Experiment ID: {self.current_experiment_id} Experiment Name: {self.current_experiment_name}\narea_summary:\n{self.area_summary[0]}\nraw_data:\n\n{self.raw_data[0]}")  
             else:
-                print("Area summary data not found")
+                print(f"\nLoad Data fail Experiment ID: {self.current_experiment_id} Experiment Name: {self.current_experiment_name}")
+                print(f"Area summary data not found : {self.area_summary}")
+                print(f"Raw data not found : {self.raw_data}")
         else:
             print("No experiment selected")
     
@@ -991,7 +1140,7 @@ def main():
     app = QApplication(sys.argv)
 
     try:
-        with open("main.qss", "r") as style_file:
+        with open("main.qss", "r", encoding="utf-8") as style_file:
             app.setStyleSheet(style_file.read())
     except FileNotFoundError:
         print("Error: style.qss file not found. Using default styling.")

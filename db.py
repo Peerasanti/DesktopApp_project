@@ -1,6 +1,5 @@
 import sqlite3
 import os
-import datetime
 
 class DatabaseManager:
     def __init__(self):
@@ -198,6 +197,23 @@ class DatabaseManager:
         except sqlite3.Error as e:
             print(f"Error fetching raw data by experiment ID: {e}")
             return []
+        
+    def get_experiment_name_by_id(self, experiment_id):
+        try:
+            self.cursor.execute("SELECT name FROM experiments WHERE experiment_id = ?", (experiment_id,))
+            result = self.cursor.fetchone()
+            return result[0] if result else None
+        except sqlite3.Error as e:
+            print(f"Error fetching experiment name by ID: {e}")
+            return None
+        
+    def get_experiment_by_id(self, experiment_id):
+        try:
+            self.cursor.execute("SELECT * FROM experiments WHERE experiment_id = ?", (experiment_id,))
+            return self.cursor.fetchone()
+        except sqlite3.Error as e:
+            print(f"Error fetching experiment by ID: {e}")
+            return None
         
     def close(self):
         if hasattr(self, 'conn') and self.conn:

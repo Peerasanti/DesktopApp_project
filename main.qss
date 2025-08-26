@@ -1,3 +1,4 @@
+/* Base QWidget */
 QWidget {
     background-color: #121212;
     color: #e0f2e9;
@@ -21,74 +22,129 @@ QLabel#VideoDisplay {
     padding: 10px;
 }
 
-/* Buttons */
+/* Status Label */
+QLabel#StatusLabel {
+    color: #cccccc;
+    font-size: 14px;
+    margin: 8px;
+}
+
+/* Default Button (ถ้าไม่ได้กำหนด ObjectName) */
 QPushButton {
-    background-color: #005f3f;
+    background-color: #333333;
     color: #e0ffe0;
-    border-radius: 10px;
-    padding: 8px 18px;
-    border: 1px solid #00cc66;
+    border-radius: 8px;
+    padding: 6px 14px;
+    min-height: 32px;
+    font-size: 13px;
 }
 
-QPushButton:hover {
-    background-color: #00804d;
-}
-
-QPushButton:pressed {
-    background-color: #004d33;
-}
-
-/* LineEdit (IP input) */
-QLineEdit {
-    background-color: #1e1e1e;
-    color: #aaffcc;
-    border: 1px solid #00cc66;
-    border-radius: 5px;
-    padding: 5px;
-}
-
-/* TableWidget */
-QTableWidget {
-    background-color: #1e1e1e;
-    alternate-background-color: #262626;
-    gridline-color: #00cc66;
-    border: 1px solid #00cc66;
-}
-
-QHeaderView::section {
-    background-color: #004d33;
-    color: #e0ffe0;
-    padding: 4px;
-    border: 1px solid #00cc66;
+/* Main Buttons (ฟ้า) */
+QPushButton#MainButton {
+    background-color: #0066cc;
+    color: white;
+    border-radius: 8px;
+    font-size: 13px;
+    padding: 6px 14px;
+    min-height: 32px;
     font-weight: bold;
 }
-
-QTableWidget::item {
-    padding: 5px;
+QPushButton#MainButton:hover {
+    background-color: #3385ff;
+}
+QPushButton#MainButton:pressed {
+    background-color: #004c99;
 }
 
-QTableWidget QTableCornerButton::section {
-    background-color: #003322;
-}
-
-/* Dialog Buttons (OK/Cancel) */
-QDialogButtonBox QPushButton {
-    background-color: #00664d;
-    border: 1px solid #00cc66;
+/* Yellow Buttons (เลือกวิดีโอ/กล้อง) */
+QPushButton#YellowButton {
+    background-color: #e6b800;
+    color: black;
+    border-radius: 8px;
+    font-size: 13px;
     padding: 6px 14px;
+    min-height: 32px;
+    font-weight: bold;
+}
+QPushButton#YellowButton:hover {
+    background-color: #ffd11a;
+}
+QPushButton#YellowButton:pressed {
+    background-color: #b38f00;
+}
+
+/* Red Button (ล้างข้อมูล) */
+QPushButton#RedButton {
+    background-color: #cc0000;
+    color: white;
+    border-radius: 8px;
+    font-size: 13px;
+    padding: 6px 14px;
+    min-height: 32px;
+    font-weight: bold;
+}
+QPushButton#RedButton:hover {
+    background-color: #ff1a1a;
+}
+QPushButton#RedButton:pressed {
+    background-color: #990000;
+}
+
+/* Green Button */
+QPushButton#GreenButton {
+    background-color: #009933;
+    color: white;
+    border-radius: 8px;
+    font-size: 13px;
+    padding: 6px 14px;
+    min-height: 32px;
+    font-weight: bold;
+    border: none;
+}
+QPushButton#GreenButton:hover {
+    background-color: #00cc44;
+}
+QPushButton#GreenButton:pressed {
+    background-color: #006622;
+}
+
+/* ======================== */
+/* 🎨 Polygon Table Style   */
+/* ======================== */
+
+QTableWidget {
+    background-color: #111;         /* พื้นหลังดำ */
+    color: #00FF88;                 /* ตัวอักษรเขียว */
+    gridline-color: #00aa55;        /* เส้นตารางสีเขียวเข้ม */
+    border: 2px solid #00ff88;
     border-radius: 6px;
 }
-
-QDialogButtonBox QPushButton:hover {
-    background-color: #008f66;
+QHeaderView::section {
+    background-color: #222;
+    color: #00FF88;
+    font-weight: bold;
+    padding: 6px;
+    border: 1px solid #00aa55;
+}
+QTableWidget::item {
+    padding: 4px;
+}
+QTableWidget::item:selected {
+    background-color: #00aa55;
+    color: black;
 }
 
-QDialogButtonBox QPushButton:pressed {
-    background-color: #004d33;
+/* ScrollBar */
+QScrollBar:vertical {
+    background: #111;
+    width: 12px;
+    margin: 0px;
 }
-
-/* Message Boxes */
-QMessageBox {
-    background-color: #121212;
-    color: #e0ffe0;
+QScrollBar::handle:vertical {
+    background: #00FF88;
+    min-height: 20px;
+    border-radius: 6px;
+}
+QScrollBar::handle:vertical:hover {
+    background: #00cc66;
 }
