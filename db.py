@@ -22,8 +22,11 @@ class DatabaseManager:
         # add types of experiment in experiment_type table
         self.cursor.execute("""
             INSERT OR IGNORE INTO experiment_type (type_name) VALUES 
-            ('Rat Tracking'), 
-            ('Mouse Tracking')
+            ('Y-Maze'), 
+            ('MNovel Object Recognition Test'),
+            ('Elevated Plus Maze'),
+            ('Light/Dark Box Test: LDB'),
+            ('Mirror Test')
         """)
         # experiments table
         self.conn.execute("""

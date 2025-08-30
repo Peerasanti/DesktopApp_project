@@ -56,7 +56,7 @@ class PageOne(QWidget):
         self.cap = None  
         self.is_playing = False
 
-        self.setFixedSize(650, 700)  
+        self.setFixedSize(630, 700)  
 
         # Header
         self.header = QLabel("Mice Detection Program")
@@ -97,7 +97,18 @@ class PageOne(QWidget):
         self.switch_page.clicked.connect(self.switch_to_summary_page)
         self.switch_page.setObjectName("MainButton")
 
+        self.theme_button = QPushButton()
+        self.theme_button.setObjectName("ThemeButton")
+        self.theme_button.setFixedSize(100, 40)
+        self.theme_button.clicked.connect(self.toggle_theme)
+        self.update_theme_button()
+
         # Layouts
+        header_layout = QHBoxLayout()
+        header_layout.addWidget(self.header)
+        header_layout.addStretch() 
+        header_layout.addWidget(self.theme_button)
+
         btn_layout = QHBoxLayout()
         btn_layout.addWidget(self.button)
         btn_layout.addWidget(self.camera)
@@ -117,7 +128,7 @@ class PageOne(QWidget):
         center_layout.setAlignment(Qt.AlignCenter)
 
         main_layout = QVBoxLayout()
-        main_layout.addWidget(self.header)
+        main_layout.addLayout(header_layout)  
         main_layout.addLayout(center_layout)
         main_layout.addStretch()
         self.setLayout(main_layout)
@@ -233,6 +244,17 @@ class PageOne(QWidget):
                 QMessageBox.warning(self, "ข้อผิดพลาด", "ไม่สามารถบันทึกการทดลองได้ กรุณาลองใหม่!")
         else:
             self.label.setText("🎥 เลือกไฟล์วิดีโอหรือกล้อง")
+    
+    def toggle_theme(self):
+        new_theme = "dark" if self.main_window.current_theme == "light" else "light"
+        self.main_window.load_theme(new_theme)
+        self.update_theme_button()
+
+    def update_theme_button(self):
+        if self.main_window.current_theme == "light":
+            self.theme_button.setText("🌜 Dark")
+        else:
+            self.theme_button.setText("🌞 Light")
 
     def clear_data(self):
         if self.cap:
@@ -282,7 +304,9 @@ class ExperimentSetupDialog(QDialog):
 
         button_layout = QHBoxLayout()
         ok_button = QPushButton("ยืนยัน")
+        ok_button.setObjectName("GreenButton")
         cancel_button = QPushButton("ยกเลิก")
+        cancel_button.setObjectName("RedButton")
         button_layout.addWidget(ok_button)
         button_layout.addWidget(cancel_button)
 
@@ -1067,6 +1091,7 @@ class PageThree(QWidget):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
+        self.current_theme = "light"
         self.setWindowTitle("mice detection")
         self.setWindowIcon(QIcon("assets/mouse.png"))
         self.fps = 30
@@ -1092,6 +1117,8 @@ class MainWindow(QMainWindow):
 
         self.center_window()  
 
+        self.load_theme(self.current_theme)
+
     def switch_to_page(self, index):
         self.stack.setCurrentIndex(index)
         current_widget = self.stack.currentWidget()
@@ -1109,6 +1136,24 @@ class MainWindow(QMainWindow):
         center_point = QDesktopWidget().availableGeometry().center()
         window_rect.moveCenter(center_point)
         self.move(window_rect.topLeft()) 
+
+    def load_theme(self, theme_name):
+        theme_files = {
+            "light": "light.qss",
+            "dark": "dark.qss"
+        }
+        if theme_name not in theme_files:
+            print(f"Error: Theme '{theme_name}' not supported.")
+            return
+        try:
+            with open(theme_files[theme_name], "r", encoding="utf-8") as style_file:
+                app = QApplication.instance()
+                app.setStyleSheet(style_file.read())
+                self.current_theme = theme_name
+        except FileNotFoundError:
+            print(f"Error: QSS file '{theme_files[theme_name]}' not found.")
+        except Exception as e:
+            print(f"Error loading theme '{theme_name}': {e}")
 
     def set_video_path(self, video_path):
         self.video_path = video_path
@@ -1138,13 +1183,6 @@ class MainWindow(QMainWindow):
 
 def main():
     app = QApplication(sys.argv)
-
-    try:
-        with open("main.qss", "r", encoding="utf-8") as style_file:
-            app.setStyleSheet(style_file.read())
-    except FileNotFoundError:
-        print("Error: style.qss file not found. Using default styling.")
-
     window = MainWindow()
     window.show()
     sys.exit(app.exec_())
