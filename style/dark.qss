@@ -148,3 +148,24 @@ QScrollBar::handle:vertical {
 QScrollBar::handle:vertical:hover {
     background: #00cc66;
 }
+
+QComboBox#ThemeDropdown {
+    background-color: #ffffff;
+    color: #333;
+    border: 1px solid #aaaaaa;
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: 13px;
+}
+
+QComboBox#ThemeDropdown:hover {
+    border: 1px solid #666666;
+}
+
+QComboBox QAbstractItemView {
+    background-color: #ffffff;
+    color: #333;
+    selection-background-color: #b5d5f5;
+    selection-color: black;
+    border: 1px solid #aaaaaa;
+}

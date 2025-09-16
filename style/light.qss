@@ -1,0 +1,169 @@
+/* Base QWidget */
+QWidget {
+    background-color: #ffffff;
+    color: #333333;
+    font-family: 'Arial';
+    font-size: 16px;
+}
+
+/* Header */
+QLabel#Header {
+    color: #004085;
+    font-size: 28px;
+    font-weight: bold;
+    padding: 10px;
+}
+
+/* Video Display */
+QLabel#VideoDisplay {
+    border: 2px dashed #007bff;
+    background-color: #ffffff;
+    color: #004085;
+    padding: 10px;
+}
+
+/* Status Label */
+QLabel#StatusLabel {
+    color: #5a7399;
+    font-size: 14px;
+    margin: 8px;
+}
+
+/* Default Button */
+QPushButton {
+    background-color: #e6e6e6;
+    color: #333333;
+    border-radius: 8px;
+    padding: 6px 14px;
+    min-height: 32px;
+    font-size: 13px;
+}
+
+/* Main Buttons (ฟ้า) */
+QPushButton#MainButton {
+    background-color: #3399ff; /* ฟ้าอ่อนสด */
+    color: white;
+    border-radius: 8px;
+    font-size: 13px;
+    padding: 6px 14px;
+    min-height: 32px;
+    font-weight: bold;
+}
+QPushButton#MainButton:hover {
+    background-color: #66b5ff; /* ฟ้าสว่างขึ้น */
+}
+QPushButton#MainButton:pressed {
+    background-color: #1a75d1; /* ฟ้าเข้ม */
+}
+
+/* Yellow Button (เหลือง) */
+QPushButton#YellowButton {
+    background-color: #ffcc66; /* เหลืองสด */
+    color: #333333;
+    border-radius: 8px;
+    font-size: 13px;
+    padding: 6px 14px;
+    min-height: 32px;
+    font-weight: bold;
+}
+QPushButton#YellowButton:hover {
+    background-color: #ffd480; /* เหลืองสว่าง */
+}
+QPushButton#YellowButton:pressed {
+    background-color: #e6b800; /* เหลืองเข้ม */
+}
+
+/* Red Button (แดงสด) */
+QPushButton#RedButton {
+    background-color: #ff6666; /* แดงสว่าง */
+    color: white;
+    border-radius: 8px;
+    font-size: 13px;
+    padding: 6px 14px;
+    min-height: 32px;
+    font-weight: bold;
+}
+QPushButton#RedButton:hover {
+    background-color: #ff8080; /* แดงอ่อน */
+}
+QPushButton#RedButton:pressed {
+    background-color: #e64d4d; /* แดงเข้ม */
+}
+
+/* Green Button (เขียวสด) */
+QPushButton#GreenButton {
+    background-color: #66cc99; /* เขียวมิ้นต์สด */
+    color: white;
+    border-radius: 8px;
+    font-size: 13px;
+    padding: 6px 14px;
+    min-height: 32px;
+    font-weight: bold;
+    border: none;
+}
+QPushButton#GreenButton:hover {
+    background-color: #80d4aa; /* เขียวอ่อน */
+}
+QPushButton#GreenButton:pressed {
+    background-color: #4db88a; /* เขียวเข้ม */
+}
+
+/* ======================== */
+/* 🎨 Polygon Table Style   */
+/* ======================== */
+QTableWidget {
+    background-color: #ffffff;
+    color: #004085;
+    gridline-color: #cccccc;
+    border: 2px solid #007bff;
+    border-radius: 6px;
+}
+QHeaderView::section {
+    background-color: #f1f1f1;
+    color: #004085;
+    font-weight: bold;
+    padding: 6px;
+    border: 1px solid #cccccc;
+}
+QTableWidget::item {
+    padding: 4px;
+}
+QTableWidget::item:selected {
+    background-color: #007bff;
+    color: white;
+}
+
+/* ScrollBar */
+QScrollBar:vertical {
+    background: #f1f1f1;
+    width: 12px;
+    margin: 0px;
+}
+QScrollBar::handle:vertical {
+    background: #007bff;
+    min-height: 20px;
+    border-radius: 6px;
+}
+QScrollBar::handle:vertical:hover {
+    background: #3399ff;
+}
+
+/* ComboBox */
+QComboBox#ThemeDropdown {
+    background-color: #ffffff;
+    color: #333;
+    border: 1px solid #aaaaaa;
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: 13px;
+}
+QComboBox#ThemeDropdown:hover {
+    border: 1px solid #666666;
+}
+QComboBox QAbstractItemView {
+    background-color: #ffffff;
+    color: #333;
+    selection-background-color: #b5d5f5;
+    selection-color: black;
+    border: 1px solid #aaaaaa;
+}

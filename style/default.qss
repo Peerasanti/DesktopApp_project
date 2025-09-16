@@ -1,0 +1,200 @@
+/* ======================== */
+/* 🌑 Base QWidget (Gray)   */
+/* ======================== */
+QWidget {
+    background-color: #f0f0f0;       /* เทาอ่อน */
+    color: #2e2e2e;                  /* ตัวอักษรเทาเข้ม */
+    font-family: 'Arial';
+    font-size: 15px;
+}
+
+/* ======================== */
+/* Header                   */
+/* ======================== */
+QLabel#Header {
+    color: #333333;
+    font-size: 26px;
+    font-weight: bold;
+    padding: 10px;
+}
+
+/* ======================== */
+/* Video Display             */
+/* ======================== */
+QLabel#VideoDisplay {
+    border: 2px dashed #aaaaaa;
+    background-color: #e8e8e8;
+    color: #555555;
+    padding: 10px;
+}
+
+/* ======================== */
+/* Status Label              */
+/* ======================== */
+QLabel#StatusLabel {
+    color: #666666;
+    font-size: 13px;
+    margin: 8px;
+}
+
+/* ======================== */
+/* Default Button (Gray)     */
+/* ======================== */
+QPushButton {
+    background-color: #d9d9d9;
+    color: #2e2e2e;
+    border-radius: 6px;
+    padding: 6px 14px;
+    min-height: 30px;
+    font-size: 13px;
+    border: 1px solid #bfbfbf;
+}
+QPushButton:hover {
+    background-color: #cfcfcf;
+}
+QPushButton:pressed {
+    background-color: #b5b5b5;
+}
+
+/* ======================== */
+/* Main Buttons (Blue Soft) */
+/* ======================== */
+QPushButton#MainButton {
+    background-color: #6699cc;
+    color: white;
+    border-radius: 6px;
+    font-size: 13px;
+    padding: 6px 14px;
+    min-height: 30px;
+    font-weight: bold;
+    border: none;
+}
+QPushButton#MainButton:hover {
+    background-color: #80add9;
+}
+QPushButton#MainButton:pressed {
+    background-color: #4d7aaa;
+}
+
+/* ======================== */
+/* Yellow Buttons (Soft)     */
+/* ======================== */
+QPushButton#YellowButton {
+    background-color: #e6d27a;
+    color: #333;
+    border-radius: 6px;
+    font-size: 13px;
+    padding: 6px 14px;
+    min-height: 30px;
+    font-weight: bold;
+    border: none;
+}
+QPushButton#YellowButton:hover {
+    background-color: #f0e08c;
+}
+QPushButton#YellowButton:pressed {
+    background-color: #c8b65e;
+}
+
+/* ======================== */
+/* Red Button (Soft Red)     */
+/* ======================== */
+QPushButton#RedButton {
+    background-color: #d96666;
+    color: white;
+    border-radius: 6px;
+    font-size: 13px;
+    padding: 6px 14px;
+    min-height: 30px;
+    font-weight: bold;
+    border: none;
+}
+QPushButton#RedButton:hover {
+    background-color: #e08080;
+}
+QPushButton#RedButton:pressed {
+    background-color: #b54c4c;
+}
+
+/* ======================== */
+/* Green Button (Soft Green) */
+/* ======================== */
+QPushButton#GreenButton {
+    background-color: #66b38f;
+    color: white;
+    border-radius: 6px;
+    font-size: 13px;
+    padding: 6px 14px;
+    min-height: 30px;
+    font-weight: bold;
+    border: none;
+}
+QPushButton#GreenButton:hover {
+    background-color: #7fc4a2;
+}
+QPushButton#GreenButton:pressed {
+    background-color: #4d9974;
+}
+
+/* ======================== */
+/* Table (Polygon)           */
+/* ======================== */
+QTableWidget {
+    background-color: #f7f7f7;
+    color: #333;
+    gridline-color: #bfbfbf;
+    border: 1px solid #cccccc;
+    border-radius: 4px;
+}
+QHeaderView::section {
+    background-color: #e0e0e0;
+    color: #333;
+    font-weight: bold;
+    padding: 6px;
+    border: 1px solid #cccccc;
+}
+QTableWidget::item {
+    padding: 4px;
+}
+QTableWidget::item:selected {
+    background-color: #b5d5f5;
+    color: #000;
+}
+
+/* ======================== */
+/* ScrollBar                 */
+/* ======================== */
+QScrollBar:vertical {
+    background: #f0f0f0;
+    width: 12px;
+    margin: 0px;
+}
+QScrollBar::handle:vertical {
+    background: #bfbfbf;
+    min-height: 20px;
+    border-radius: 6px;
+}
+QScrollBar::handle:vertical:hover {
+    background: #a6a6a6;
+}
+
+QComboBox#ThemeDropdown {
+    background-color: #ffffff;
+    color: #333;
+    border: 1px solid #aaaaaa;
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: 13px;
+}
+
+QComboBox#ThemeDropdown:hover {
+    border: 1px solid #666666;
+}
+
+QComboBox QAbstractItemView {
+    background-color: #ffffff;
+    color: #333;
+    selection-background-color: #b5d5f5;
+    selection-color: black;
+    border: 1px solid #aaaaaa;
+}

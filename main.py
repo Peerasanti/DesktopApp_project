@@ -12,13 +12,13 @@ from openpyxl.worksheet.worksheet import Worksheet
 import cv2
 import re
 import numpy as np
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
-import matplotlib.pyplot as plt
 from PyQt5.QtWidgets import ( QApplication, QMainWindow, QLabel, QWidget, QVBoxLayout, 
                              QStackedWidget, QPushButton, QFileDialog, QDialog, QHBoxLayout, 
                              QFormLayout, QLineEdit, QDialogButtonBox, QDesktopWidget, QInputDialog,
                              QColorDialog, QTableWidget, QTableWidgetItem, QHeaderView, QMessageBox,
-                             QComboBox, QTextEdit)
+                             QComboBox, QTextEdit, QGridLayout)
 from PyQt5.QtCore import Qt, QTimer, QSize, QDateTime, QLocale
 from PyQt5.QtGui import QIcon, QPixmap, QImage, QFont, QColor, QPainter
 
@@ -97,17 +97,26 @@ class PageOne(QWidget):
         self.switch_page.clicked.connect(self.switch_to_summary_page)
         self.switch_page.setObjectName("MainButton")
 
-        self.theme_button = QPushButton()
-        self.theme_button.setObjectName("ThemeButton")
-        self.theme_button.setFixedSize(100, 40)
-        self.theme_button.clicked.connect(self.toggle_theme)
-        self.update_theme_button()
+        self.theme_dropdown = QComboBox()
+        self.theme_dropdown.setFixedSize(140, 32)
+        self.theme_dropdown.setObjectName("ThemeDropdown")
+
+        self.theme_dropdown.addItem("🌞 Light Theme", "light")
+        self.theme_dropdown.addItem("🌜 Dark Theme", "dark")
+        self.theme_dropdown.addItem("🌸 Pastel Theme", "pastel")
+        self.theme_dropdown.addItem("🌈 Default Theme", "default")
+
+        current_index = self.theme_dropdown.findData(self.main_window.current_theme)
+        if current_index != -1:
+            self.theme_dropdown.setCurrentIndex(current_index)
+
+        self.theme_dropdown.currentIndexChanged.connect(self.change_theme)
 
         # Layouts
         header_layout = QHBoxLayout()
         header_layout.addWidget(self.header)
         header_layout.addStretch() 
-        header_layout.addWidget(self.theme_button)
+        header_layout.addWidget(self.theme_dropdown)
 
         btn_layout = QHBoxLayout()
         btn_layout.addWidget(self.button)
@@ -245,16 +254,10 @@ class PageOne(QWidget):
         else:
             self.label.setText("🎥 เลือกไฟล์วิดีโอหรือกล้อง")
     
-    def toggle_theme(self):
-        new_theme = "dark" if self.main_window.current_theme == "light" else "light"
-        self.main_window.load_theme(new_theme)
-        self.update_theme_button()
-
-    def update_theme_button(self):
-        if self.main_window.current_theme == "light":
-            self.theme_button.setText("🌜 Dark")
-        else:
-            self.theme_button.setText("🌞 Light")
+    def change_theme(self, index):
+        theme = self.theme_dropdown.itemData(index)
+        if theme:
+            self.main_window.load_theme(theme)
 
     def clear_data(self):
         if self.cap:
@@ -903,6 +906,14 @@ class PolygonManager:
 
 
 
+class MplCanvas(FigureCanvas):
+    def __init__(self, parent=None, width=5, height=4, dpi=100):
+        fig = Figure(figsize=(width, height), dpi=dpi, tight_layout=True)
+        self.axes = fig.add_subplot(111)
+        super().__init__(fig)
+
+
+
 class PageThree(QWidget):
     def __init__(self, stack, main_window):
         super().__init__()
@@ -911,6 +922,9 @@ class PageThree(QWidget):
         self.setFixedSize(1400, 950)
         self.area_summary = None
         self.raw_data = None
+
+        self.summary_bar = MplCanvas(self, width=5, height=4, dpi=100)
+        self.summary_bar.axes.set_title("Area Summary")
 
         self.switch_page = QPushButton("กลับไปยังหน้าแรก")
         self.switch_page.clicked.connect(self.switch_to_home_page)
@@ -1064,6 +1078,7 @@ class PageThree(QWidget):
         self.experiment_dropdown.currentIndexChanged.connect(self.on_experiment_change)
     
     def on_experiment_change(self, index):
+        self.summary_bar.axes.clear()
         if index > 0: 
             selected_id = self.experiment_dropdown.itemData(index)  
             self.area_summary = self.main_window.db.get_area_summary_by_experiment_id(selected_id)
@@ -1072,6 +1087,7 @@ class PageThree(QWidget):
             experiment = self.main_window.db.get_experiment_by_id(selected_id)
             self.current_experiment_name = experiment[2]
             self.current_experiment_date = experiment[3]
+
             if self.area_summary and self.raw_data:
                 print(f"\nLoad Data success Experiment ID: {self.current_experiment_id} Experiment Name: {self.current_experiment_name}\narea_summary:\n{self.area_summary[0]}\nraw_data:\n\n{self.raw_data[0]}")  
             else:
@@ -1091,7 +1107,7 @@ class PageThree(QWidget):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.current_theme = "light"
+        self.current_theme = "default"
         self.setWindowTitle("mice detection")
         self.setWindowIcon(QIcon("assets/mouse.png"))
         self.fps = 30
@@ -1139,8 +1155,10 @@ class MainWindow(QMainWindow):
 
     def load_theme(self, theme_name):
         theme_files = {
-            "light": "light.qss",
-            "dark": "dark.qss"
+            "light": "style/light.qss",
+            "dark": "style/dark.qss",
+            "default": "style/default.qss",
+            "pastel": "style/pastel.qss"
         }
         if theme_name not in theme_files:
             print(f"Error: Theme '{theme_name}' not supported.")
