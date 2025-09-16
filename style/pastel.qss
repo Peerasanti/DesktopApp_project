@@ -1,200 +1,195 @@
 /* ======================== */
-/* 🌸 Base QWidget (Pastel) */
+/* 🌸 Pastel Pink Theme      */
 /* ======================== */
 QWidget {
-    background-color: #fceef4;        /* ชมพูอ่อน */
-    color: #4a3c3c;                   /* ตัวอักษรน้ำตาลเข้ม */
+    background-color: #ffe6f0;  /* พื้นหลังชมพูอ่อน */
+    color: #4d0033;             /* ตัวอักษรสีเข้มเล็กน้อย */
     font-family: 'Arial';
-    font-size: 15px;
+    font-size: 16px;
 }
 
-/* ======================== */
-/* Header                   */
-/* ======================== */
+/* Header */
 QLabel#Header {
-    color: #d65d8b;                   /* ชมพูเข้ม */
-    font-size: 26px;
+    color: #cc3399;  /* ชมพูเข้ม */
+    font-size: 28px;
     font-weight: bold;
     padding: 10px;
 }
 
 /* ======================== */
-/* Video Display             */
-/* ======================== */
-QLabel#VideoDisplay {
-    border: 2px dashed #e8a2b9;       /* เส้นชมพูพาสเทล */
-    background-color: #fff6f9;
-    color: #7a5a5a;
-    padding: 10px;
-}
-
-/* ======================== */
-/* Status Label              */
-/* ======================== */
-QLabel#StatusLabel {
-    color: #7a6c6c;
-    font-size: 13px;
-    margin: 8px;
-}
-
-/* ======================== */
-/* Default Button (Gray-Pink)*/
+/* 🔘 Buttons               */
 /* ======================== */
 QPushButton {
-    background-color: #f8dce5;
-    color: #4a3c3c;
-    border-radius: 6px;
+    background-color: #ffd1e6;  /* ชมพูพาสเทล */
+    color: #4d0033;
+    border-radius: 8px;
     padding: 6px 14px;
-    min-height: 30px;
+    min-height: 32px;
     font-size: 13px;
-    border: 1px solid #e0b6c7;
-}
-QPushButton:hover {
-    background-color: #f2c9d8;
-}
-QPushButton:pressed {
-    background-color: #e6a9bf;
 }
 
-/* ======================== */
-/* Main Buttons (Pink Strong)*/
-/* ======================== */
+/* Green Button  */
+QPushButton#GreenButton {
+    background-color: #a3d9a5;   
+    color: #003300;
+    font-weight: bold;
+}
+QPushButton#GreenButton:hover {
+    background-color: #b8e6b8;  
+}
+QPushButton#GreenButton:pressed {
+    background-color: #7cb67c;   
+}
+
+/* Yellow Button -> Pastel Yellow */
+QPushButton#YellowButton {
+    background-color: #fff0b3;
+    color: #665500;
+    font-weight: bold;
+}
+QPushButton#YellowButton:hover {
+    background-color: #fff7cc;
+}
+QPushButton#YellowButton:pressed {
+    background-color: #ccaa66;
+}
+
+/* Red Button -> Pastel Red / Pink */
+QPushButton#RedButton {
+    background-color: #ff9999;
+    color: #660000;
+    font-weight: bold;
+}
+QPushButton#RedButton:hover {
+    background-color: #ffb3b3;
+}
+QPushButton#RedButton:pressed {
+    background-color: #cc6666;
+}
+
+/* Main Button */
 QPushButton#MainButton {
-    background-color: #e6739f;        /* ชมพูเข้ม */
-    color: white;
-    border-radius: 6px;
-    font-size: 13px;
-    padding: 6px 14px;
-    min-height: 30px;
+    background-color: #99ccff;
+    color: #003366;
     font-weight: bold;
     border: none;
 }
 QPushButton#MainButton:hover {
-    background-color: #ec8fb3;
+    background-color: #b3d9ff;
 }
 QPushButton#MainButton:pressed {
-    background-color: #cc5b89;
+    background-color: #6699cc;
 }
 
 /* ======================== */
-/* Yellow Buttons (Peach)    */
-/* ======================== */
-QPushButton#YellowButton {
-    background-color: #f9d68c;        /* พีชอ่อน */
-    color: #4a3c3c;
-    border-radius: 6px;
-    font-size: 13px;
-    padding: 6px 14px;
-    min-height: 30px;
-    font-weight: bold;
-    border: none;
-}
-QPushButton#YellowButton:hover {
-    background-color: #fde2a8;
-}
-QPushButton#YellowButton:pressed {
-    background-color: #e0b86f;
-}
-
-/* ======================== */
-/* Red Button (Coral Red)    */
-/* ======================== */
-QPushButton#RedButton {
-    background-color: #f28b82;        /* แดง coral นุ่ม */
-    color: white;
-    border-radius: 6px;
-    font-size: 13px;
-    padding: 6px 14px;
-    min-height: 30px;
-    font-weight: bold;
-    border: none;
-}
-QPushButton#RedButton:hover {
-    background-color: #f5a09a;
-}
-QPushButton#RedButton:pressed {
-    background-color: #d96a62;
-}
-
-/* ======================== */
-/* Green Button (Mint)       */
-/* ======================== */
-QPushButton#GreenButton {
-    background-color: #8fd6b8;        /* เขียวมิ้นท์ */
-    color: white;
-    border-radius: 6px;
-    font-size: 13px;
-    padding: 6px 14px;
-    min-height: 30px;
-    font-weight: bold;
-    border: none;
-}
-QPushButton#GreenButton:hover {
-    background-color: #a6e3c9;
-}
-QPushButton#GreenButton:pressed {
-    background-color: #73b99d;
-}
-
-/* ======================== */
-/* Table (Polygon)           */
+/* 📊 Table                 */
 /* ======================== */
 QTableWidget {
-    background-color: #fff6f9;
-    color: #4a3c3c;
-    gridline-color: #e8a2b9;
-    border: 1px solid #e0b6c7;
-    border-radius: 4px;
-}
-QHeaderView::section {
-    background-color: #f8dce5;
-    color: #4a3c3c;
-    font-weight: bold;
-    padding: 6px;
-    border: 1px solid #e0b6c7;
-}
-QTableWidget::item {
-    padding: 4px;
-}
-QTableWidget::item:selected {
-    background-color: #f2c9d8;
-    color: #000;
-}
-
-/* ======================== */
-/* ScrollBar                 */
-/* ======================== */
-QScrollBar:vertical {
-    background: #fceef4;
-    width: 12px;
-    margin: 0px;
-}
-QScrollBar::handle:vertical {
-    background: #e8a2b9;
-    min-height: 20px;
+    background-color: #ffe6f2;
+    color: #660033;
+    gridline-color: #ffb3d1;
+    border: 2px solid #ffb3d1;
     border-radius: 6px;
 }
-QScrollBar::handle:vertical:hover {
-    background: #d65d8b;
+QTableCornerButton::section {
+    background-color: #ffd6e6;   
+    border: 1px solid #ffb3d1; 
+}
+QHeaderView::section {
+    background-color: #ffe6f2;
+    color: #660033;
+    font-weight: bold;
+    padding: 6px;
+    border: 1px solid #ffb3d1;
+}
+QTableWidget::item:selected {
+    background-color: #ff99cc;
+    color: white;
 }
 
-QComboBox#ThemeDropdown {
-    background-color: #ffffff;
-    color: #333;
-    border: 1px solid #aaaaaa;
+/* ======================== */
+/* ⬇️ ComboBox (Pastel)     */
+/* ======================== */
+QComboBox {
+    background-color: #ffe6f2;
+    color: #4d0033;
+    border: 1px solid #ffb3d1;
     border-radius: 6px;
     padding: 4px 8px;
     font-size: 13px;
 }
-
-QComboBox#ThemeDropdown:hover {
-    border: 1px solid #666666;
+QComboBox:hover {
+    border: 1px solid #ff66aa;
+}
+QComboBox::drop-down {
+    subcontrol-origin: padding;
+    subcontrol-position: top right;
+    width: 24px;
+    border-left: 1px solid #ffb3d1;
+    background: #ffd6e6;
+}
+QComboBox QAbstractItemView {
+    background-color: #ffe6f2;
+    color: #4d0033;
+    selection-background-color: #ff99cc;
+    selection-color: white;
+    border: 1px solid #ffb3d1;
 }
 
-QComboBox QAbstractItemView {
-    background-color: #ffffff;
-    color: #333;
-    selection-background-color: #b5d5f5;
-    selection-color: black;
-    border: 1px solid #aaaaaa;
+/* ======================== */
+/* ✏️ LineEdit              */
+/* ======================== */
+QLineEdit {
+    background-color: #ffe6f2;
+    border: 1px solid #ffb3d1;
+    border-radius: 6px;
+    padding: 6px;
+    color: #4d0033;
+    font-size: 14px;
+}
+QLineEdit:focus {
+    border: 1px solid #ff66aa;
+    background-color: #fff0f5;
+}
+
+/* ======================== */
+/* 📦 Card (QFrame)         */
+/* ======================== */
+QFrame {
+    background-color: #fff0f5;
+    border: 1px solid #ffcce6;
+    border-radius: 10px;
+}
+QFrame QLabel {
+    color: #4d0033;
+    font-size: 14px;
+}
+
+/* ======================== */
+/* 🖱 ScrollBar             */
+/* ======================== */
+QScrollBar:vertical {
+    background: #ffd6e6;
+    width: 12px;
+}
+QScrollBar::handle:vertical {
+    background: #ff99cc;
+    min-height: 20px;
+    border-radius: 6px;
+}
+QScrollBar::handle:vertical:hover {
+    background: #ff66aa;
+}
+
+QScrollBar:horizontal {
+    background: #ffd6e6;
+    height: 12px;
+}
+QScrollBar::handle:horizontal {
+    background: #ff99cc;
+    min-width: 20px;
+    border-radius: 6px;
+}
+QScrollBar::handle:horizontal:hover {
+    background: #ff66aa;
 }

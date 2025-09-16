@@ -1,4 +1,6 @@
-/* Base QWidget */
+/* ======================== */
+/* 🌙 Base Dark Theme       */
+/* ======================== */
 QWidget {
     background-color: #121212;
     color: #e0f2e9;
@@ -14,22 +16,9 @@ QLabel#Header {
     padding: 10px;
 }
 
-/* Video Display */
-QLabel#VideoDisplay {
-    border: 2px dashed #00cc66;
-    background-color: #1e1e1e;
-    color: #aaffcc;
-    padding: 10px;
-}
-
-/* Status Label */
-QLabel#StatusLabel {
-    color: #cccccc;
-    font-size: 14px;
-    margin: 8px;
-}
-
-/* Default Button (ถ้าไม่ได้กำหนด ObjectName) */
+/* ======================== */
+/* 🔘 Buttons               */
+/* ======================== */
 QPushButton {
     background-color: #333333;
     color: #e0ffe0;
@@ -39,14 +28,10 @@ QPushButton {
     font-size: 13px;
 }
 
-/* Main Buttons (ฟ้า) */
+/* Main Button (Blue) */
 QPushButton#MainButton {
     background-color: #0066cc;
     color: white;
-    border-radius: 8px;
-    font-size: 13px;
-    padding: 6px 14px;
-    min-height: 32px;
     font-weight: bold;
 }
 QPushButton#MainButton:hover {
@@ -56,14 +41,10 @@ QPushButton#MainButton:pressed {
     background-color: #004c99;
 }
 
-/* Yellow Buttons (เลือกวิดีโอ/กล้อง) */
+/* Yellow Button */
 QPushButton#YellowButton {
     background-color: #e6b800;
     color: black;
-    border-radius: 8px;
-    font-size: 13px;
-    padding: 6px 14px;
-    min-height: 32px;
     font-weight: bold;
 }
 QPushButton#YellowButton:hover {
@@ -73,14 +54,10 @@ QPushButton#YellowButton:pressed {
     background-color: #b38f00;
 }
 
-/* Red Button (ล้างข้อมูล) */
+/* Red Button */
 QPushButton#RedButton {
     background-color: #cc0000;
     color: white;
-    border-radius: 8px;
-    font-size: 13px;
-    padding: 6px 14px;
-    min-height: 32px;
     font-weight: bold;
 }
 QPushButton#RedButton:hover {
@@ -94,10 +71,6 @@ QPushButton#RedButton:pressed {
 QPushButton#GreenButton {
     background-color: #009933;
     color: white;
-    border-radius: 8px;
-    font-size: 13px;
-    padding: 6px 14px;
-    min-height: 32px;
     font-weight: bold;
     border: none;
 }
@@ -109,15 +82,18 @@ QPushButton#GreenButton:pressed {
 }
 
 /* ======================== */
-/* 🎨 Polygon Table Style   */
+/* 📊 Table                 */
 /* ======================== */
-
 QTableWidget {
-    background-color: #111;         /* พื้นหลังดำ */
-    color: #00FF88;                 /* ตัวอักษรเขียว */
-    gridline-color: #00aa55;        /* เส้นตารางสีเขียวเข้ม */
+    background-color: #111;
+    color: #00FF88;
+    gridline-color: #00aa55;
     border: 2px solid #00ff88;
     border-radius: 6px;
+}
+QTableCornerButton::section {
+    background-color: #111;   
+    border: 1px solid #00aa55; 
 }
 QHeaderView::section {
     background-color: #222;
@@ -126,50 +102,14 @@ QHeaderView::section {
     padding: 6px;
     border: 1px solid #00aa55;
 }
-QTableWidget::item {
-    padding: 4px;
-}
 QTableWidget::item:selected {
     background-color: #00aa55;
     color: black;
 }
 
-/* ScrollBar */
-QScrollBar:vertical {
-    background: #111;
-    width: 12px;
-    margin: 0px;
-}
-QScrollBar::handle:vertical {
-    background: #00FF88;
-    min-height: 20px;
-    border-radius: 6px;
-}
-QScrollBar::handle:vertical:hover {
-    background: #00cc66;
-}
-
-QComboBox#ThemeDropdown {
-    background-color: #ffffff;
-    color: #333;
-    border: 1px solid #aaaaaa;
-    border-radius: 6px;
-    padding: 4px 8px;
-    font-size: 13px;
-}
-
-QComboBox#ThemeDropdown:hover {
-    border: 1px solid #666666;
-}
-
-QComboBox QAbstractItemView {
-    background-color: #ffffff;
-    color: #333;
-    selection-background-color: #b5d5f5;
-    selection-color: black;
-    border: 1px solid #aaaaaa;
-}
-
+/* ======================== */
+/* ⬇️ ComboBox (Dark)       */
+/* ======================== */
 QComboBox {
     background-color: #1e1e1e;
     color: #e0f2e9;
@@ -181,7 +121,7 @@ QComboBox {
 QComboBox:hover {
     border: 1px solid #00cc66;
 }
-QComboBox:drop-down {
+QComboBox::drop-down {
     subcontrol-origin: padding;
     subcontrol-position: top right;
     width: 24px;
@@ -196,7 +136,9 @@ QComboBox QAbstractItemView {
     border: 1px solid #444;
 }
 
-/* Line Edit / Text Field */
+/* ======================== */
+/* ✏️ LineEdit              */
+/* ======================== */
 QLineEdit {
     background-color: #1e1e1e;
     border: 1px solid #444;
@@ -210,7 +152,9 @@ QLineEdit:focus {
     background-color: #262626;
 }
 
-/* Frame (ใช้เป็น Card) */
+/* ======================== */
+/* 📦 Card (QFrame)         */
+/* ======================== */
 QFrame {
     background-color: #1a1a1a;
     border: 1px solid #333;
@@ -221,46 +165,25 @@ QFrame QLabel {
     font-size: 14px;
 }
 
-/* Tab Widget */
-QTabWidget::pane {
-    border: 1px solid #444;
-    background: #121212;
+/* ======================== */
+/* 🖱 ScrollBar             */
+/* ======================== */
+QScrollBar:vertical {
+    background: #111;
+    width: 12px;
+}
+QScrollBar::handle:vertical {
+    background: #00FF88;
+    min-height: 20px;
     border-radius: 6px;
 }
-QTabBar::tab {
-    background: #1e1e1e;
-    color: #e0f2e9;
-    padding: 8px 16px;
-    border-top-left-radius: 6px;
-    border-top-right-radius: 6px;
-    margin-right: 2px;
-}
-QTabBar::tab:selected {
-    background: #00aa55;
-    color: black;
-}
-QTabBar::tab:hover {
-    background: #2a2a2a;
+QScrollBar::handle:vertical:hover {
+    background: #00cc66;
 }
 
-/* Progress Bar */
-QProgressBar {
-    border: 1px solid #444;
-    border-radius: 6px;
-    background: #1e1e1e;
-    text-align: center;
-    color: #e0f2e9;
-}
-QProgressBar::chunk {
-    background-color: #00cc66;
-    border-radius: 6px;
-}
-
-/* ScrollBar Horizontal */
 QScrollBar:horizontal {
     background: #111;
     height: 12px;
-    margin: 0px;
 }
 QScrollBar::handle:horizontal {
     background: #00FF88;

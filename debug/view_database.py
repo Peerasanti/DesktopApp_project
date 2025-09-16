@@ -1,7 +1,7 @@
 import sqlite3
 
 # กำหนดพาธไปยังไฟล์ data.db
-db_path = "database/data.db"  # ปรับพาธให้ตรงกับตำแหน่งไฟล์ในโปรเจกต์ของคุณ
+db_path = "../database/data.db"  
 
 try:
     # เชื่อมต่อกับฐานข้อมูล

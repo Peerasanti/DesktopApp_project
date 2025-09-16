@@ -28,7 +28,7 @@ class IPCameraDialog(QDialog):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("กรอก IP ของกล้องหรือ Webcam")
-        self.setFixedSize(500, 100)
+        self.setFixedSize(500, 120)
         self.ip_input = QLineEdit(self)
         self.ip_input.setPlaceholderText("เช่น rtsp://admin:pass@192.168.1.64/stream1")
 
@@ -36,6 +36,9 @@ class IPCameraDialog(QDialog):
         self.button_box = QDialogButtonBox(buttons)
         self.button_box.accepted.connect(self.accept)
         self.button_box.rejected.connect(self.reject)
+
+        self.button_box.button(QDialogButtonBox.Ok).setObjectName("GreenButton")
+        self.button_box.button(QDialogButtonBox.Cancel).setObjectName("RedButton")
 
         layout = QFormLayout()
         layout.addRow("IP/URL กล้องหรือ Webcam:", self.ip_input)
@@ -55,8 +58,7 @@ class PageOne(QWidget):
         self.video_path = None
         self.cap = None  
         self.is_playing = False
-
-        self.setFixedSize(630, 700)  
+        self.setFixedSize(630, 670)  
 
         # Header
         self.header = QLabel("Mice Detection Program")
@@ -536,6 +538,8 @@ class PageTwo(QWidget):
 
     def on_back_button_clicked(self):
         self.stop_video()
+        self.clear_all_data()
+        self.main_window.set_experiment_id(None)
         self.main_window.switch_to_page(0)
 
     def is_ip_camera(self):
@@ -791,6 +795,9 @@ class PageTwo(QWidget):
         reply = QMessageBox.question(self, "ยืนยันการจบการทดลอง", 
                                      "คุณต้องการจบการทดลองและบันทึกข้อมูลหรือไม่?",
                                      QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        
+        reply.button(QMessageBox.Yes).setObjectName("GreenButton")
+        reply.button(QMessageBox.No).setObjectName("RedButton")
 
         if reply == QMessageBox.Yes:
             for polygon in self.polygon_manager.polygons.values():
