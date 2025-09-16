@@ -1,39 +1,71 @@
-def sanitize_filename(self,filename):
-        invalid_chars = r'[<>:"/\\|?*]'
-        sanitized = re.sub(invalid_chars, '_', filename)
-        sanitized = sanitized.strip().strip('.')
-        return sanitized
-    
-    def _write_csv(self, data, output_file, headers):
-        output_dir = os.path.dirname(output_file)
-        if output_dir and not os.path.exists(output_dir):
-            os.makedirs(output_dir)
-        
-        try:
-            with open(output_file, 'w', newline='', encoding='utf-8') as csvfile:
-                writer = csv.writer(csvfile)
-                writer.writerow(headers)
-                for row in data:
-                    writer.writerow(row)
-        except OSError as e:
-            print(f"Error writing to CSV file {output_file}: {e}")
-            raise
-    
-    def export_to_csv(self):
-        if not self.area_summary and not self.raw_data:
-            print("Not found area summary and rawdata")
-            return
-        
-        if self.area_summary :
-            summary_file = os.path.join('export', f"{self.current_experiment_date}_{self.current_experiment_name}_area_summary.csv")
-            summary_area_file = self.sanitize_filename(summary_file)
-            summary_headers = ['area_id', 'experiment_id', 'area_name', 'color', 'hit_count', 'total_time', 'area_point']
-            self._write_csv(self.area_summary, summary_area_file, summary_headers)
-            print(f"Exported area_summary to {summary_file}")
+class PageThree(QWidget):
+    def __init__(self, stack, main_window):
+        super().__init__()
+        self.stack = stack
+        self.main_window = main_window
+        self.setFixedSize(1400, 950)
+        self.area_summary = None
+        self.raw_data = None
 
-        if self.raw_data:
-            rawdata_file = os.path.join('export', f"{self.current_experiment_date}_{self.current_experiment_name}_raw_data.csv")
-            rawdata_name_file = self.sanitize_filename(rawdata_file)
-            rawdata_headers = ['experiment_id', 'area_id', 'timestamp', 'frame_count', 'area_name', 'rat_position_x', 'rat_position_y']
-            self._write_csv(self.raw_data, rawdata_name_file, rawdata_headers)
-            print(f"Exported raw_data to {rawdata_file}")
+        self.summary_bar = MplCanvas(self, width=5, height=4, dpi=100)
+        self.summary_bar.axes.set_title("Bar Chart")
+
+        self.line_chart = MplCanvas(self, width=5, height=4, dpi=100)
+        self.line_chart.axes.set_title("Line Chart")
+
+        self.pie_chart = MplCanvas(self, width=5, height=4, dpi=100)
+        self.pie_chart.axes.set_title("Pie Chart")
+
+        self.switch_page = QPushButton("กลับไปยังหน้าแรก")
+        self.switch_page.clicked.connect(self.switch_to_home_page)
+        self.switch_page.setObjectName("MainButton")
+
+        self.csv_export = QPushButton("Export to CSV")
+        self.csv_export.clicked.connect(self.export_to_csv)
+        self.csv_export.setObjectName("YellowButton")
+
+        self.excel_export = QPushButton("Export to Excel")
+        self.excel_export.clicked.connect(self.export_to_excel)
+        self.excel_export.setObjectName("YellowButton")
+
+        self.theme_dropdown = QComboBox()
+        self.theme_dropdown.setFixedSize(140, 32)
+        self.theme_dropdown.setObjectName("ThemeDropdown")
+
+        self.theme_dropdown.addItem("🌞 Light Theme", "light")
+        self.theme_dropdown.addItem("🌜 Dark Theme", "dark")
+        self.theme_dropdown.addItem("🌸 Pastel Theme", "pastel")
+        self.theme_dropdown.addItem("🌈 Default Theme", "default")
+
+        current_index = self.theme_dropdown.findData(self.main_window.current_theme)
+        if current_index != -1:
+            self.theme_dropdown.setCurrentIndex(current_index)
+
+        self.theme_dropdown.currentIndexChanged.connect(self.change_theme)
+
+        self.experiment_dropdown = self.create_experiment_dropdown()
+
+        top_layout = QHBoxLayout()
+        top_layout.addWidget(self.experiment_dropdown, stretch=2)  
+        top_layout.addWidget(self.csv_export, stretch=1)
+        top_layout.addWidget(self.excel_export, stretch=1)
+
+        grid_layout = QGridLayout()
+        grid_layout.addWidget(self.summary_bar, 0, 0)   
+        grid_layout.addWidget(self.line_chart, 0, 1)  
+        grid_layout.addWidget(self.pie_chart, 1, 0, 1, 2)  
+
+        bottom_layout = QHBoxLayout()
+        bottom_layout.addStretch(1)
+        bottom_layout.addWidget(self.switch_page)
+        bottom_layout.addStretch(1)
+
+        self.layout = QVBoxLayout()
+        self.layout.addLayout(top_layout)
+        self.layout.addLayout(grid_layout, stretch=4)
+        self.layout.addLayout(bottom_layout)
+        self.setLayout(self.layout)
+
+        self.setLayout(self.layout)
+
+        self.refresh()

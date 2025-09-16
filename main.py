@@ -18,7 +18,7 @@ from PyQt5.QtWidgets import ( QApplication, QMainWindow, QLabel, QWidget, QVBoxL
                              QStackedWidget, QPushButton, QFileDialog, QDialog, QHBoxLayout, 
                              QFormLayout, QLineEdit, QDialogButtonBox, QDesktopWidget, QInputDialog,
                              QColorDialog, QTableWidget, QTableWidgetItem, QHeaderView, QMessageBox,
-                             QComboBox, QTextEdit, QGridLayout)
+                             QComboBox, QTextEdit, QGridLayout, QFrame)
 from PyQt5.QtCore import Qt, QTimer, QSize, QDateTime, QLocale
 from PyQt5.QtGui import QIcon, QPixmap, QImage, QFont, QColor, QPainter
 
@@ -924,7 +924,13 @@ class PageThree(QWidget):
         self.raw_data = None
 
         self.summary_bar = MplCanvas(self, width=5, height=4, dpi=100)
-        self.summary_bar.axes.set_title("Area Summary")
+        self.summary_bar.axes.set_title("Bar Chart")
+
+        self.line_chart = MplCanvas(self, width=5, height=4, dpi=100)
+        self.line_chart.axes.set_title("Line Chart")
+
+        self.pie_chart = MplCanvas(self, width=5, height=4, dpi=100)
+        self.pie_chart.axes.set_title("Pie Chart")
 
         self.switch_page = QPushButton("กลับไปยังหน้าแรก")
         self.switch_page.clicked.connect(self.switch_to_home_page)
@@ -938,26 +944,70 @@ class PageThree(QWidget):
         self.excel_export.clicked.connect(self.export_to_excel)
         self.excel_export.setObjectName("YellowButton")
 
+        self.theme_dropdown = QComboBox()
+        self.theme_dropdown.setFixedSize(140, 32)
+        self.theme_dropdown.setObjectName("ThemeDropdown")
+
+        self.theme_dropdown.addItem("🌞 Light Theme", "light")
+        self.theme_dropdown.addItem("🌜 Dark Theme", "dark")
+        self.theme_dropdown.addItem("🌸 Pastel Theme", "pastel")
+        self.theme_dropdown.addItem("🌈 Default Theme", "default")
+
+        current_index = self.theme_dropdown.findData(self.main_window.current_theme)
+        if current_index != -1:
+            self.theme_dropdown.setCurrentIndex(current_index)
+
+        self.theme_dropdown.currentIndexChanged.connect(self.change_theme)
+
         self.experiment_dropdown = self.create_experiment_dropdown()
 
         top_layout = QHBoxLayout()
-        top_layout.addWidget(self.experiment_dropdown, stretch=2)  
-        top_layout.addWidget(self.csv_export, stretch=1)
-        top_layout.addWidget(self.excel_export, stretch=1)
+        top_layout.addWidget(self.experiment_dropdown, stretch=2)
+        top_layout.addWidget(self.theme_dropdown, stretch=1)
+
+        card_layout = QGridLayout()
+        self.cards = []
+        cards_names = ["Card 1", "Card 2", "Card 3", "Card 4"]
+        for i in range(4):
+            card = QFrame()
+            card.setFrameShape(QFrame.StyledPanel)
+            card.setFixedSize(200, 120)
+            label = QLabel(cards_names[i], card)
+            label.setAlignment(Qt.AlignCenter)
+            self.cards.append(card)
+            card_layout.addWidget(card, i // 2, i % 2) 
+
+        middle_layout = QHBoxLayout()
+        left_placeholder = QFrame()
+        left_placeholder.setFrameShape(QFrame.StyledPanel)
+        middle_layout.addWidget(left_placeholder, stretch=1)
+        middle_layout.addWidget(self.pie_chart, stretch=1)
+
+        chart_layout = QHBoxLayout()
+        chart_layout.addWidget(self.line_chart, stretch=1)
+        chart_layout.addWidget(self.summary_bar, stretch=1)
 
         bottom_layout = QHBoxLayout()
         bottom_layout.addStretch(1)
-        bottom_layout.addWidget(self.switch_page)
+        bottom_layout.addWidget(self.csv_export, stretch=2)
+        bottom_layout.addWidget(self.excel_export, stretch=2)
+        bottom_layout.addWidget(self.switch_page, stretch=1)
         bottom_layout.addStretch(1)
 
         self.layout = QVBoxLayout()
         self.layout.addLayout(top_layout)
-        self.layout.addStretch(1)  
+        self.layout.addLayout(card_layout)
+        self.layout.addLayout(middle_layout, stretch=2)
+        self.layout.addLayout(chart_layout, stretch=2)
         self.layout.addLayout(bottom_layout)
 
         self.setLayout(self.layout)
-
         self.refresh()
+
+    def change_theme(self, index):
+        theme = self.theme_dropdown.itemData(index)
+        if theme:
+            self.main_window.load_theme(theme)
     
     def sanitize_filename(self,filename):
         invalid_chars = r'[<>:"|?*]'
@@ -1057,6 +1107,14 @@ class PageThree(QWidget):
 
         return dropdown
     
+    def clear_graphs(self):
+        self.summary_bar.axes.clear()
+        self.line_chart.axes.clear()
+        self.pie_chart.axes.clear()
+
+    def prepare_data_for_graph(self):
+        pass
+
     def refresh(self):
         if hasattr(self, 'experiment_dropdown'):
             self.layout.removeWidget(self.experiment_dropdown)
@@ -1078,7 +1136,7 @@ class PageThree(QWidget):
         self.experiment_dropdown.currentIndexChanged.connect(self.on_experiment_change)
     
     def on_experiment_change(self, index):
-        self.summary_bar.axes.clear()
+        self.clear_graphs()
         if index > 0: 
             selected_id = self.experiment_dropdown.itemData(index)  
             self.area_summary = self.main_window.db.get_area_summary_by_experiment_id(selected_id)
@@ -1089,7 +1147,8 @@ class PageThree(QWidget):
             self.current_experiment_date = experiment[3]
 
             if self.area_summary and self.raw_data:
-                print(f"\nLoad Data success Experiment ID: {self.current_experiment_id} Experiment Name: {self.current_experiment_name}\narea_summary:\n{self.area_summary[0]}\nraw_data:\n\n{self.raw_data[0]}")  
+                print(f"\nLoad Data success Experiment ID: {self.current_experiment_id} Experiment Name: {self.current_experiment_name}\narea_summary:\n{self.area_summary[0]}\nraw_data:\n\n{self.raw_data[0]}") 
+                self.prepare_data_for_graph() 
             else:
                 print(f"\nLoad Data fail Experiment ID: {self.current_experiment_id} Experiment Name: {self.current_experiment_name}")
                 print(f"Area summary data not found : {self.area_summary}")
