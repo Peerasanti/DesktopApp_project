@@ -5,8 +5,13 @@ import os
 os.environ["TF_ENABLE_ONEDNN_OPTS"] = "1"
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
+import warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+
 import csv
 import tensorflow as tf
+import pandas as pd
+import plotly.express as px
 from openpyxl import Workbook
 from openpyxl.worksheet.worksheet import Worksheet
 import cv2
@@ -21,6 +26,7 @@ from PyQt5.QtWidgets import ( QApplication, QMainWindow, QLabel, QWidget, QVBoxL
                              QComboBox, QTextEdit, QGridLayout, QFrame)
 from PyQt5.QtCore import Qt, QTimer, QSize, QDateTime, QLocale
 from PyQt5.QtGui import QIcon, QPixmap, QImage, QFont, QColor, QPainter
+from PyQt5.QtWebEngineWidgets import QWebEngineView
 
 from db import DatabaseManager 
 
@@ -913,14 +919,6 @@ class PolygonManager:
 
 
 
-class MplCanvas(FigureCanvas):
-    def __init__(self, parent=None, width=5, height=4, dpi=100):
-        fig = Figure(figsize=(width, height), dpi=dpi, tight_layout=True)
-        self.axes = fig.add_subplot(111)
-        super().__init__(fig)
-
-
-
 class PageThree(QWidget):
     def __init__(self, stack, main_window):
         super().__init__()
@@ -929,15 +927,8 @@ class PageThree(QWidget):
         self.setFixedSize(1400, 950)
         self.area_summary = None
         self.raw_data = None
-
-        self.summary_bar = MplCanvas(self, width=5, height=4, dpi=100)
-        self.summary_bar.axes.set_title("Bar Chart")
-
-        self.line_chart = MplCanvas(self, width=5, height=4, dpi=100)
-        self.line_chart.axes.set_title("Line Chart")
-
-        self.pie_chart = MplCanvas(self, width=5, height=4, dpi=100)
-        self.pie_chart.axes.set_title("Pie Chart")
+        self.df_raw_data = None
+        self.df_area_summary = None
 
         self.switch_page = QPushButton("กลับไปยังหน้าแรก")
         self.switch_page.clicked.connect(self.switch_to_home_page)
@@ -965,50 +956,42 @@ class PageThree(QWidget):
             self.theme_dropdown.setCurrentIndex(current_index)
 
         self.theme_dropdown.currentIndexChanged.connect(self.change_theme)
-
         self.experiment_dropdown = self.create_experiment_dropdown()
 
-        top_layout = QHBoxLayout()
-        top_layout.addWidget(self.experiment_dropdown, stretch=2)
-        top_layout.addWidget(self.theme_dropdown, stretch=1)
+        self.bar_graph = QWebEngineView()
+        self.line_graph = QWebEngineView()
+        self.pie_graph = QWebEngineView()
 
-        card_layout = QGridLayout()
-        self.cards = []
-        cards_names = ["Card 1", "Card 2", "Card 3", "Card 4"]
-        for i in range(4):
-            card = QFrame()
-            card.setFrameShape(QFrame.StyledPanel)
-            card.setFixedSize(200, 120)
-            label = QLabel(cards_names[i], card)
-            label.setAlignment(Qt.AlignCenter)
-            self.cards.append(card)
-            card_layout.addWidget(card, i // 2, i % 2) 
+        self.main_layout = QVBoxLayout()
 
-        middle_layout = QHBoxLayout()
-        left_placeholder = QFrame()
-        left_placeholder.setFrameShape(QFrame.StyledPanel)
-        middle_layout.addWidget(left_placeholder, stretch=1)
-        middle_layout.addWidget(self.pie_chart, stretch=1)
+        top_row_layout = QHBoxLayout()
+        top_row_layout.addStretch()                     
+        top_row_layout.addWidget(self.theme_dropdown)
 
-        chart_layout = QHBoxLayout()
-        chart_layout.addWidget(self.line_chart, stretch=1)
-        chart_layout.addWidget(self.summary_bar, stretch=1)
+        self.dropdown_layout = QVBoxLayout()
+        self.dropdown_layout.addLayout(top_row_layout)
+        self.dropdown_layout.addWidget(self.experiment_dropdown)
+        self.dropdown_layout.addStretch()  
 
-        bottom_layout = QHBoxLayout()
-        bottom_layout.addStretch(1)
-        bottom_layout.addWidget(self.csv_export, stretch=2)
-        bottom_layout.addWidget(self.excel_export, stretch=2)
-        bottom_layout.addWidget(self.switch_page, stretch=1)
-        bottom_layout.addStretch(1)
+        self.graph_layout = QGridLayout()
+        self.graph_layout.addWidget(self.bar_graph, 0, 1)  
+        self.graph_layout.addWidget(self.line_graph, 1, 0)  
+        self.graph_layout.addWidget(self.pie_graph, 1, 1)   
 
-        self.layout = QVBoxLayout()
-        self.layout.addLayout(top_layout)
-        self.layout.addLayout(card_layout)
-        self.layout.addLayout(middle_layout, stretch=2)
-        self.layout.addLayout(chart_layout, stretch=2)
-        self.layout.addLayout(bottom_layout)
+        self.button_layout = QHBoxLayout()
+        self.button_layout.addStretch()  
+        self.button_layout.addWidget(self.switch_page)
+        self.button_layout.addWidget(self.csv_export)
+        self.button_layout.addWidget(self.excel_export)
+        self.button_layout.addStretch()  
 
-        self.setLayout(self.layout)
+        self.main_layout.addLayout(self.dropdown_layout) 
+        self.main_layout.addLayout(self.graph_layout)     
+        self.main_layout.addStretch()              
+        self.main_layout.addLayout(self.button_layout)    
+
+        self.setLayout(self.main_layout)
+
         self.refresh()
 
     def change_theme(self, index):
@@ -1111,22 +1094,41 @@ class PageThree(QWidget):
         dropdown.addItem("เลือกการทดลอง", 0)
         for experiment in all_experiments:
             dropdown.addItem(experiment[2], experiment[0])
+        
+        dropdown.setFixedHeight(40)
+        dropdown.setFont(QFont("Arial", 20))
 
         return dropdown
-    
-    def clear_graphs(self):
-        self.summary_bar.axes.clear()
-        self.line_chart.axes.clear()
-        self.pie_chart.axes.clear()
+
+    def update_graph(self):
+        if self.df_raw_data is None and self.df_area_summary is None:
+            empty_html = "<h1>No Data Available</h1>"
+            self.bar_graph.setHtml(empty_html)
+            self.line_graph.setHtml(empty_html)
+            self.pie_graph.setHtml(empty_html)
+            return
+
+        if self.area_summary is not None:
+            bar_fig = px.bar(self.df_area_summary, x="Area Name", y="Hit Count", color="Color", title="พื้นที่ต่อจำนวนการตรวจจับ")
+
 
     def prepare_data_for_graph(self):
-        pass
+        self.df_raw_data = None
+        self.df_area_summary = None
+        if self.raw_data is not None:
+            self.df_raw_data = pd.DataFrame(self.raw_data, columns=["Experiment ID", "Area ID", "Timestamp", "Frame Count", "Area Name", "X", "Y"])
+        if self.area_summary is not None:
+            self.df_area_summary = pd.DataFrame(self.area_summary, columns=["ID", "Experiment ID", "Area Name", "Color", "Hit Count", "Total Time", "Area Point"])
+        
+        self.update_graph()
+
 
     def refresh(self):
         if hasattr(self, 'experiment_dropdown'):
-            self.layout.removeWidget(self.experiment_dropdown)
+            self.main_layout.removeWidget(self.experiment_dropdown)
             self.experiment_dropdown.deleteLater()
         self.experiment_dropdown = self.create_experiment_dropdown()
+        print(self.main_window.get_experiment_id())
 
         if self.main_window.get_experiment_id() is not None:
             experiment_id = self.main_window.get_experiment_id()
@@ -1139,11 +1141,10 @@ class PageThree(QWidget):
         else:
             self.experiment_dropdown.setCurrentIndex(0)
         
-        self.layout.insertWidget(0, self.experiment_dropdown)
+        self.main_layout.insertWidget(0, self.experiment_dropdown)
         self.experiment_dropdown.currentIndexChanged.connect(self.on_experiment_change)
     
     def on_experiment_change(self, index):
-        self.clear_graphs()
         if index > 0: 
             selected_id = self.experiment_dropdown.itemData(index)  
             self.area_summary = self.main_window.db.get_area_summary_by_experiment_id(selected_id)
@@ -1155,13 +1156,19 @@ class PageThree(QWidget):
 
             if self.area_summary and self.raw_data:
                 print(f"\nLoad Data success Experiment ID: {self.current_experiment_id} Experiment Name: {self.current_experiment_name}\narea_summary:\n{self.area_summary[0]}\nraw_data:\n\n{self.raw_data[0]}") 
-                self.prepare_data_for_graph() 
+            elif self.area_summary or self.raw_data:
+                print(f"\nLoad Data incomplete Experiment ID: {self.current_experiment_id} Experiment Name: {self.current_experiment_name}\narea_summary:\n{self.area_summary}\nraw_data:\n\n{self.raw_data[0]}")
             else:
                 print(f"\nLoad Data fail Experiment ID: {self.current_experiment_id} Experiment Name: {self.current_experiment_name}")
                 print(f"Area summary data not found : {self.area_summary}")
                 print(f"Raw data not found : {self.raw_data}")
+
+            self.prepare_data_for_graph()
         else:
             print("No experiment selected")
+            self.area_summary = None
+            self.raw_data = None
+            self.prepare_data_for_graph()
     
     def switch_to_home_page(self):
         self.experiment_dropdown.setCurrentIndex(self.experiment_dropdown.findData(0))
