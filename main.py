@@ -5,13 +5,17 @@ import os
 os.environ["TF_ENABLE_ONEDNN_OPTS"] = "1"
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
-import warnings
-warnings.filterwarnings("ignore", category=DeprecationWarning)
+# import warnings
+# warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 import csv
 import tensorflow as tf
 import pandas as pd
-import plotly.express as px
+import matplotlib
+matplotlib.use('Qt5Agg')
+import matplotlib.pyplot as plt
+
+import seaborn as sns
 from openpyxl import Workbook
 from openpyxl.worksheet.worksheet import Worksheet
 import cv2
@@ -26,7 +30,7 @@ from PyQt5.QtWidgets import ( QApplication, QMainWindow, QLabel, QWidget, QVBoxL
                              QComboBox, QTextEdit, QGridLayout, QFrame)
 from PyQt5.QtCore import Qt, QTimer, QSize, QDateTime, QLocale
 from PyQt5.QtGui import QIcon, QPixmap, QImage, QFont, QColor, QPainter
-from PyQt5.QtWebEngineWidgets import QWebEngineView
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 
 from db import DatabaseManager 
 
@@ -801,9 +805,6 @@ class PageTwo(QWidget):
         reply = QMessageBox.question(self, "ยืนยันการจบการทดลอง", 
                                      "คุณต้องการจบการทดลองและบันทึกข้อมูลหรือไม่?",
                                      QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
-        
-        reply.button(QMessageBox.Yes).setObjectName("GreenButton")
-        reply.button(QMessageBox.No).setObjectName("RedButton")
 
         if reply == QMessageBox.Yes:
             for polygon in self.polygon_manager.polygons.values():
@@ -929,6 +930,9 @@ class PageThree(QWidget):
         self.raw_data = None
         self.df_raw_data = None
         self.df_area_summary = None
+        self.current_experiment_id = None
+        self.current_experiment_name = None
+        self.current_experiment_date = None
 
         self.switch_page = QPushButton("กลับไปยังหน้าแรก")
         self.switch_page.clicked.connect(self.switch_to_home_page)
@@ -958,9 +962,9 @@ class PageThree(QWidget):
         self.theme_dropdown.currentIndexChanged.connect(self.change_theme)
         self.experiment_dropdown = self.create_experiment_dropdown()
 
-        self.bar_graph = QWebEngineView()
-        self.line_graph = QWebEngineView()
-        self.pie_graph = QWebEngineView()
+        self.bar_graph = FigureCanvas(plt.Figure(figsize=(5, 3)))
+        self.line_graph = FigureCanvas(plt.Figure(figsize=(5, 3)))
+        self.pie_graph = FigureCanvas(plt.Figure(figsize=(5, 3)))
 
         self.main_layout = QVBoxLayout()
 
@@ -971,12 +975,16 @@ class PageThree(QWidget):
         self.dropdown_layout = QVBoxLayout()
         self.dropdown_layout.addLayout(top_row_layout)
         self.dropdown_layout.addWidget(self.experiment_dropdown)
-        self.dropdown_layout.addStretch()  
 
         self.graph_layout = QGridLayout()
-        self.graph_layout.addWidget(self.bar_graph, 0, 1)  
-        self.graph_layout.addWidget(self.line_graph, 1, 0)  
-        self.graph_layout.addWidget(self.pie_graph, 1, 1)   
+        self.graph_layout.addWidget(self.bar_graph, 0, 1)
+        self.graph_layout.addWidget(self.line_graph, 1, 0)
+        self.graph_layout.addWidget(self.pie_graph, 1, 1)
+        self.graph_layout.setRowMinimumHeight(0, 350)
+        self.graph_layout.setRowMinimumHeight(1, 350)
+        self.graph_layout.setColumnMinimumWidth(0, 450)
+        self.graph_layout.setColumnMinimumWidth(1, 450)
+        self.main_layout.setStretchFactor(self.graph_layout, 1)   
 
         self.button_layout = QHBoxLayout()
         self.button_layout.addStretch()  
@@ -986,8 +994,7 @@ class PageThree(QWidget):
         self.button_layout.addStretch()  
 
         self.main_layout.addLayout(self.dropdown_layout) 
-        self.main_layout.addLayout(self.graph_layout)     
-        self.main_layout.addStretch()              
+        self.main_layout.addLayout(self.graph_layout)                
         self.main_layout.addLayout(self.button_layout)    
 
         self.setLayout(self.main_layout)
@@ -1097,78 +1104,164 @@ class PageThree(QWidget):
         
         dropdown.setFixedHeight(40)
         dropdown.setFont(QFont("Arial", 20))
+        dropdown.currentIndexChanged.connect(self.on_experiment_change)
 
         return dropdown
 
     def update_graph(self):
-        if self.df_raw_data is None and self.df_area_summary is None:
-            empty_html = "<h1>No Data Available</h1>"
-            self.bar_graph.setHtml(empty_html)
-            self.line_graph.setHtml(empty_html)
-            self.pie_graph.setHtml(empty_html)
+        print("Updating graphs...")
+
+        self.bar_graph.figure.clear()
+        self.line_graph.figure.clear()
+        self.pie_graph.figure.clear()
+
+        has_area_summary = self.df_area_summary is not None and not self.df_area_summary.empty
+        has_raw_data = self.df_raw_data is not None and not self.df_raw_data.empty
+
+        print(f"Has area summary: {has_area_summary}")
+        print(f"Has raw data: {has_raw_data}")
+
+        if not has_area_summary and not has_raw_data:
+            print("No valid data available for graphs")
+            self.bar_graph.draw()
+            self.line_graph.draw()
+            self.pie_graph.draw()
             return
 
-        if self.area_summary is not None:
-            bar_fig = px.bar(self.df_area_summary, x="Area Name", y="Hit Count", color="Color", title="พื้นที่ต่อจำนวนการตรวจจับ")
+        try:
+            ax_line = self.line_graph.figure.add_subplot(111)
+            if has_raw_data:
+                print("Generating line graph")
+                sns.lineplot(data=self.df_raw_data, x="Timestamp", y="X", hue="Area Name", ax=ax_line)
+                ax_line.set_title("x position per time")
+                ax_line.set_xlabel("Time (seconds)")
+                ax_line.set_ylabel("X position")
+            else:
+                print("No valid data for line graph")
+                ax_line.text(0.5, 0.5, "No data available\nOr invalid data", ha='center', va='center', fontsize=14)
+                ax_line.set_axis_off()
+            self.line_graph.figure.tight_layout()
+
+            ax_bar = self.bar_graph.figure.add_subplot(111)
+            ax_pie = self.pie_graph.figure.add_subplot(111)
+            if has_area_summary:
+                print("Generating bar and pie graphs")
+                sns.barplot(data=self.df_area_summary, x="Area Name", y="Hit Count", hue="Area Name", palette=list(self.df_area_summary["Color"]), legend=False, ax=ax_bar)
+                ax_bar.set_title("Area per number of detections")
+                ax_bar.set_xlabel("Area Name")
+                ax_bar.set_ylabel("Number of Detections")
+
+                if self.df_area_summary["Total Time"].sum() > 0:
+                    ax_pie.pie(self.df_area_summary["Total Time"], labels=self.df_area_summary["Area Name"], colors=self.df_area_summary["Color"])
+                    ax_pie.set_title("Area per total time")
+                else : 
+                    print("No valid data available for pie graph")
+                    ax_pie.text(0.5, 0.5, "No data available\nOr invalid data", ha='center', va='center', fontsize=14)
+                    ax_pie.set_axis_off()
+            else:
+                print("No valid data available for bar and pie graphs")
+                ax_bar.text(0.5, 0.5, "No data available\nOr invalid data", ha='center', va='center', fontsize=14)
+                ax_pie.text(0.5, 0.5, "No data available\nOr invalid data", ha='center', va='center', fontsize=14)
+                ax_bar.set_axis_off()
+                ax_pie.set_axis_off()
+            
+            self.pie_graph.figure.tight_layout()
+            self.bar_graph.figure.tight_layout()
+
+
+        except Exception as e:
+            print(f"Error generating graphs: {e}")
+            ax_bar.text(0.5, 0.5, f"Error occurred: {str(e)}", ha='center', va='center', fontsize=14)
+            ax_pie.text(0.5, 0.5, f"Error occurred: {str(e)}", ha='center', va='center', fontsize=14)
+            ax_line.text(0.5, 0.5, f"Error occurred: {str(e)}", ha='center', va='center', fontsize=14)
+            ax_bar.set_axis_off()
+            ax_pie.set_axis_off()
+            ax_line.set_axis_off()
+            self.bar_graph.figure.tight_layout()
+            self.pie_graph.figure.tight_layout()
+            self.line_graph.figure.tight_layout()
+
+        self.bar_graph.draw()
+        self.line_graph.draw()
+        self.pie_graph.draw()
 
 
     def prepare_data_for_graph(self):
         self.df_raw_data = None
         self.df_area_summary = None
-        if self.raw_data is not None:
-            self.df_raw_data = pd.DataFrame(self.raw_data, columns=["Experiment ID", "Area ID", "Timestamp", "Frame Count", "Area Name", "X", "Y"])
-        if self.area_summary is not None:
-            self.df_area_summary = pd.DataFrame(self.area_summary, columns=["ID", "Experiment ID", "Area Name", "Color", "Hit Count", "Total Time", "Area Point"])
+
+        def parse_color(color_str):
+            try:
+                b, g, r = map(int, color_str.strip('()').split(','))
+                return f'#{r:02x}{g:02x}{b:02x}'
+            except:
+                return color_str
+            
+        if self.raw_data:
+            try:
+                self.df_raw_data = pd.DataFrame(self.raw_data, columns=["Experiment ID", "Area ID", "Timestamp", "Frame Count", "Area Name", "X", "Y"])
+                self.df_raw_data["Timestamp"] = pd.to_numeric(self.df_raw_data["Timestamp"], errors="coerce")
+                self.df_raw_data["X"] = pd.to_numeric(self.df_raw_data["X"], errors="coerce")
+                self.df_raw_data["Y"] = pd.to_numeric(self.df_raw_data["Y"], errors="coerce")
+                self.df_raw_data["Area Name"] = self.df_raw_data["Area Name"].fillna("Unknown")
+                print("Raw DataFrame:\n", self.df_raw_data.head())
+            except Exception as e:
+                print(f"Error preparing raw_data: {e}")
+                self.df_raw_data = None
+
+        if self.area_summary:
+            try:
+                self.df_area_summary = pd.DataFrame(self.area_summary, columns=["ID", "Experiment ID", "Area Name", "Color", "Hit Count", "Total Time", "Area Point"])
+                self.df_area_summary["Hit Count"] = pd.to_numeric(self.df_area_summary["Hit Count"], errors="coerce")
+                self.df_area_summary["Total Time"] = pd.to_numeric(self.df_area_summary["Total Time"], errors="coerce")
+                self.df_area_summary["Color"] = self.df_area_summary["Color"].apply(parse_color)
+                print("Area Summary DataFrame:\n", self.df_area_summary.head())
+            except Exception as e:
+                print(f"Error preparing area_summary: {e}")
+                self.df_area_summary = None
         
         self.update_graph()
 
 
     def refresh(self):
-        if hasattr(self, 'experiment_dropdown'):
-            self.main_layout.removeWidget(self.experiment_dropdown)
-            self.experiment_dropdown.deleteLater()
-        self.experiment_dropdown = self.create_experiment_dropdown()
-        print(self.main_window.get_experiment_id())
+        self.experiment_dropdown.blockSignals(True)
+        self.experiment_dropdown.clear()
+        all_experiments = self.main_window.db.get_all_experiments()
+        self.experiment_dropdown.addItem("เลือกการทดลอง", 0)
+        for experiment in all_experiments:
+            self.experiment_dropdown.addItem(experiment[2], experiment[0])
+        self.experiment_dropdown.blockSignals(False)
 
-        if self.main_window.get_experiment_id() is not None:
-            experiment_id = self.main_window.get_experiment_id()
-            index = self.experiment_dropdown.findData(experiment_id)
-            if index != -1:
-                self.experiment_dropdown.setCurrentIndex(index)
-                self.on_experiment_change(index)
-            else:
-                self.experiment_dropdown.setCurrentIndex(0)
-        else:
-            self.experiment_dropdown.setCurrentIndex(0)
-        
-        self.main_layout.insertWidget(0, self.experiment_dropdown)
-        self.experiment_dropdown.currentIndexChanged.connect(self.on_experiment_change)
+        experiment_id = self.main_window.get_experiment_id()
+        index = self.experiment_dropdown.findData(experiment_id) if experiment_id else 0
+        self.experiment_dropdown.setCurrentIndex(index)
+        self.on_experiment_change(index)
     
     def on_experiment_change(self, index):
-        if index > 0: 
-            selected_id = self.experiment_dropdown.itemData(index)  
+        self.area_summary = None
+        self.raw_data = None
+
+        if index > 0:
+            selected_id = self.experiment_dropdown.itemData(index)
             self.area_summary = self.main_window.db.get_area_summary_by_experiment_id(selected_id)
             self.raw_data = self.main_window.db.get_raw_data_by_experiment_id(selected_id)
             self.current_experiment_id = selected_id
             experiment = self.main_window.db.get_experiment_by_id(selected_id)
-            self.current_experiment_name = experiment[2]
-            self.current_experiment_date = experiment[3]
+            self.current_experiment_name = experiment[2] if experiment else "None"
+            self.current_experiment_date = experiment[3] if experiment else "None"
 
             if self.area_summary and self.raw_data:
-                print(f"\nLoad Data success Experiment ID: {self.current_experiment_id} Experiment Name: {self.current_experiment_name}\narea_summary:\n{self.area_summary[0]}\nraw_data:\n\n{self.raw_data[0]}") 
+                print(f"\nLoad Data success Experiment ID: {self.current_experiment_id} Experiment Name: {self.current_experiment_name}\narea_summary:\n{self.area_summary[0]}\nraw_data:\n{self.raw_data[0]}")
             elif self.area_summary or self.raw_data:
-                print(f"\nLoad Data incomplete Experiment ID: {self.current_experiment_id} Experiment Name: {self.current_experiment_name}\narea_summary:\n{self.area_summary}\nraw_data:\n\n{self.raw_data[0]}")
+                print(f"\nLoad Data incomplete Experiment ID: {self.current_experiment_id} Experiment Name: {self.current_experiment_name}\narea_summary:\n{self.area_summary[0] if self.area_summary else None}\nraw_data:\n{self.raw_data[0] if self.raw_data else None}")
             else:
                 print(f"\nLoad Data fail Experiment ID: {self.current_experiment_id} Experiment Name: {self.current_experiment_name}")
-                print(f"Area summary data not found : {self.area_summary}")
-                print(f"Raw data not found : {self.raw_data}")
-
-            self.prepare_data_for_graph()
+                print(f"Area summary data not found: {self.area_summary}")
+                print(f"Raw data not found: {self.raw_data}")
         else:
             print("No experiment selected")
-            self.area_summary = None
-            self.raw_data = None
-            self.prepare_data_for_graph()
+
+        self.prepare_data_for_graph()
     
     def switch_to_home_page(self):
         self.experiment_dropdown.setCurrentIndex(self.experiment_dropdown.findData(0))

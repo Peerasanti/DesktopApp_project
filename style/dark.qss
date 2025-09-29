@@ -93,7 +93,6 @@ QTableWidget {
 }
 QTableCornerButton::section {
     background-color: #111;   
-    border: 1px solid #00aa55; 
 }
 QHeaderView::section {
     background-color: #222;
@@ -193,3 +192,5 @@ QScrollBar::handle:horizontal {
 QScrollBar::handle:horizontal:hover {
     background: #00cc66;
 }
+
+

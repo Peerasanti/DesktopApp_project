@@ -93,7 +93,6 @@ QTableWidget {
 }
 QTableCornerButton::section {
     background-color: #cccccc;   
-    border: 1px solid #99b3cc; 
 }
 QHeaderView::section {
     background-color: #cce0f0;
