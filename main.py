@@ -110,7 +110,7 @@ class PageOne(QWidget):
         self.switch_page.setObjectName("MainButton")
 
         self.theme_dropdown = QComboBox()
-        self.theme_dropdown.setFixedSize(140, 32)
+        self.theme_dropdown.setFixedSize(180, 32)
         self.theme_dropdown.setObjectName("ThemeDropdown")
 
         self.theme_dropdown.addItem("🌞 Light Theme", "light")
@@ -118,7 +118,7 @@ class PageOne(QWidget):
         self.theme_dropdown.addItem("🌸 Pastel Theme", "pastel")
         self.theme_dropdown.addItem("🌈 Default Theme", "default")
 
-        current_index = self.theme_dropdown.findData(self.main_window.current_theme)
+        current_index = self.theme_dropdown.findData(self.main_window.get_theme())
         if current_index != -1:
             self.theme_dropdown.setCurrentIndex(current_index)
 
@@ -157,6 +157,14 @@ class PageOne(QWidget):
         self.timer = QTimer()
         self.timer.timeout.connect(self.next_frame)
     
+    def update_theme_dropdown(self):
+        current_theme = self.main_window.get_theme()
+        index = self.theme_dropdown.findData(current_theme)
+        if index != -1:
+            self.theme_dropdown.blockSignals(True)
+            self.theme_dropdown.setCurrentIndex(index)
+            self.theme_dropdown.blockSignals(False)
+
     def on_label_click(self, event):
         if self.cap and self.cap.isOpened():
             if self.is_playing:
@@ -269,6 +277,7 @@ class PageOne(QWidget):
     def change_theme(self, index):
         theme = self.theme_dropdown.itemData(index)
         if theme:
+            self.main_window.set_theme(theme)
             self.main_window.load_theme(theme)
 
     def clear_data(self):
@@ -372,6 +381,7 @@ class PageTwo(QWidget):
         self.frame_count = 0
         self.process_every_n = 3
         self.hide_ui = False
+        self.hide_detail_notes = True
 
         self.model = tf.keras.models.load_model("model/model_for_rat_V2.keras", safe_mode=False)
         self.polygon_manager = PolygonManager()
@@ -416,19 +426,26 @@ class PageTwo(QWidget):
         key = event.key()
         if key == Qt.Key_Z and not self.drawing_polygon:
             self.start_drawing()
+            self.next_frame()
         elif key == Qt.Key_Space:
             self.on_label_click()
         elif key == Qt.Key_H:
             self.hide_ui = not self.hide_ui
+            self.next_frame()
         elif key == Qt.Key_M:
             if not self.drawing_polygon:
                 self.move_polygon()
         elif key == Qt.Key_N:
             self.change_experiment_name()
-        elif key == Qt.Key_C:
+        elif key == Qt.Key_X:
             self.clear_all_data()
+            self.next_frame()
+            self.update_polygon_table()
+        elif key == Qt.Key_V:
+            self.hide_detail_notes = not self.hide_detail_notes
+            self.next_frame()
         elif self.move_mode:
-            move_distance = 10
+            move_distance = 15
             if key == Qt.Key_W:
                 self.polygon_manager.move_all_polygons(0, -move_distance)
             elif key == Qt.Key_S:
@@ -441,6 +458,7 @@ class PageTwo(QWidget):
                 self.polygon_manager.rotate_all_polygons(np.deg2rad(5))
             elif key == Qt.Key_E:
                 self.polygon_manager.rotate_all_polygons(np.deg2rad(-5))
+            self.next_frame()
         else:
             super().keyPressEvent(event)
     
@@ -549,6 +567,8 @@ class PageTwo(QWidget):
     def on_back_button_clicked(self):
         self.stop_video()
         self.clear_all_data()
+        self.main_window.db.delete_area_summary_by_experiment_id(self.experiment_id)
+        self.main_window.db.delete_experiment_by_id(self.experiment_id)
         self.main_window.set_experiment_id(None)
         self.main_window.switch_to_page(0)
 
@@ -567,6 +587,7 @@ class PageTwo(QWidget):
     def update_video(self):
         self.experiment_name = self.main_window.get_experiment_name()
         self.experiment_id = self.main_window.get_experiment_id()
+        self.experiment_note = self.main_window.db.get_experiment_note_by_id(self.experiment_id)
         self.fps = self.main_window.get_fps()
         self.video_path = self.main_window.get_video_path()
         if self.video_path is not None:
@@ -663,7 +684,17 @@ class PageTwo(QWidget):
         qimg = QImage(overlay_frame.data, w, h, ch * w, QImage.Format_RGB888)
 
         painter = QPainter(qimg)
-        painter.setPen(QColor(0, 255, 128))
+        match self.main_window.current_theme:
+            case "dark":
+                painter.setPen(QColor(0, 255, 128))
+            case "light":
+                painter.setPen(QColor(0, 128, 255))
+            case "pastel":
+                painter.setPen(QColor(255, 0, 128))
+            case "default":
+                painter.setPen(QColor(200, 200, 200)) 
+            case _:
+                painter.setPen(QColor(200, 200, 200))  
         font = QFont("Segoe UI", 14)
         painter.setFont(font)
         format_time = f"Time: {self.format_time()}"
@@ -676,15 +707,21 @@ class PageTwo(QWidget):
             painter.drawText(10, 230, f"(M) Move Mode")
             painter.drawText(10, 260, f"(N) Change Experiment ID")
             painter.drawText(10, 290, f"(H) Hide UI")
-            painter.drawText(10, 330, f"(C) Clear All!")
+            painter.drawText(10, 320, f"(V) View Detail Notes")
+            painter.drawText(10, 350, f"(X) Clear All!")
             if self.move_mode:
-                painter.drawText(10, 400, f"Moving Polygon ...")
-                painter.drawText(10, 430, f"(W, A, S, D) to Move")
-                painter.drawText(10, 460, f"(Q, E) to Rotate")
+                painter.drawText(10, 420, f"Moving Polygon ...")
+                painter.drawText(10, 450, f"(W, A, S, D) to Move")
+                painter.drawText(10, 480, f"(Q, E) to Rotate")
             elif self.drawing_polygon:
-                painter.drawText(10, 400, f"Drawing Polygon ...")
-                painter.drawText(10, 430, f"(Left Click) to Draw")
-                painter.drawText(10, 460, f"(Right Click) to Close")
+                painter.drawText(10, 420, f"Drawing Polygon ...")
+                painter.drawText(10, 450, f"(Left Click) to Draw")
+                painter.drawText(10, 480, f"(Right Click) to Close")
+            
+            if not self.hide_detail_notes:
+                painter.drawText(10, 520, f"Detail Notes:")
+                painter.drawText(10, 550, f"{self.experiment_note}")
+
         painter.end()
 
         pixmap = QPixmap.fromImage(qimg).scaled(
@@ -736,6 +773,8 @@ class PageTwo(QWidget):
                 if polygon_id is not None:
                     print(f"Polygon saved with ID: {polygon_id} Name : {polygon.name}")
                     polygon.id = polygon_id
+            self.next_frame()
+            self.update_polygon_table()
             return
 
         if event.button() == Qt.LeftButton:
@@ -746,6 +785,7 @@ class PageTwo(QWidget):
                     self.polygon_manager.new_polygon(name, color)
                     self.active_started = True
                 self.polygon_manager.add_point_to_active((x, y))
+                self.next_frame()
 
     def calculate_overlap(self, binary_mask, center):
         experiment_id = self.experiment_id
@@ -933,6 +973,9 @@ class PageThree(QWidget):
         self.current_experiment_id = None
         self.current_experiment_name = None
         self.current_experiment_date = None
+        self.total_time = "ไม่มีปรากฏข้อมูล"
+        self.total_area = "ไม่มีปรากฏข้อมูล"
+        self.experiment_time = "ไม่มีปรากฏข้อมูล"
 
         self.switch_page = QPushButton("กลับไปยังหน้าแรก")
         self.switch_page.clicked.connect(self.switch_to_home_page)
@@ -947,7 +990,7 @@ class PageThree(QWidget):
         self.excel_export.setObjectName("YellowButton")
 
         self.theme_dropdown = QComboBox()
-        self.theme_dropdown.setFixedSize(140, 32)
+        self.theme_dropdown.setFixedSize(180, 32)
         self.theme_dropdown.setObjectName("ThemeDropdown")
 
         self.theme_dropdown.addItem("🌞 Light Theme", "light")
@@ -955,16 +998,16 @@ class PageThree(QWidget):
         self.theme_dropdown.addItem("🌸 Pastel Theme", "pastel")
         self.theme_dropdown.addItem("🌈 Default Theme", "default")
 
-        current_index = self.theme_dropdown.findData(self.main_window.current_theme)
+        current_index = self.theme_dropdown.findData(self.main_window.get_theme())
         if current_index != -1:
             self.theme_dropdown.setCurrentIndex(current_index)
 
         self.theme_dropdown.currentIndexChanged.connect(self.change_theme)
         self.experiment_dropdown = self.create_experiment_dropdown()
 
-        self.bar_graph = FigureCanvas(plt.Figure(figsize=(5, 3)))
-        self.line_graph = FigureCanvas(plt.Figure(figsize=(5, 3)))
-        self.pie_graph = FigureCanvas(plt.Figure(figsize=(5, 3)))
+        self.bar_graph = FigureCanvas(plt.Figure(figsize=(4.5, 3.5)))
+        self.line_graph = FigureCanvas(plt.Figure(figsize=(4.5, 3.5)))
+        self.pie_graph = FigureCanvas(plt.Figure(figsize=(4.5, 3.5)))
 
         self.main_layout = QVBoxLayout()
 
@@ -976,7 +1019,28 @@ class PageThree(QWidget):
         self.dropdown_layout.addLayout(top_row_layout)
         self.dropdown_layout.addWidget(self.experiment_dropdown)
 
+        self.card_frame = QFrame()
+        self.card_frame.setFrameStyle(QFrame.Box | QFrame.Raised)
+        self.card_frame.setLineWidth(2)
+        self.card_layout = QGridLayout()
+        self.card_frame.setLayout(self.card_layout)
+
+        self.total_time_label = QLabel(f"ระยะเวลาของพื้นที่ทั้งหมด:\n\n\n\n\t\t{self.total_time}")
+        self.total_time_label.setAlignment(Qt.AlignTop)
+        self.total_time_label.setStyleSheet("font-size: 16px;")
+        self.total_area_label = QLabel(f"จำนวนพื้นที่ทั้งหมด:\n\n\n\n\t\t{self.total_area}")
+        self.total_area_label.setAlignment(Qt.AlignTop)
+        self.total_area_label.setStyleSheet("font-size: 16px;")
+        self.experiment_time_label = QLabel(f"ระยะเวลาการทดลอง:\n\n\n\n\t\t{self.experiment_time}")
+        self.experiment_time_label.setAlignment(Qt.AlignTop)
+        self.experiment_time_label.setStyleSheet("font-size: 16px;")
+        self.card_layout.addWidget(self.experiment_time_label, 0, 0)
+        self.card_layout.addWidget(self.total_time_label, 0, 1)
+        self.card_layout.addWidget(self.total_area_label, 1, 0)
+        self.card_layout.setContentsMargins(20, 20, 20, 20)
+
         self.graph_layout = QGridLayout()
+        self.graph_layout.addWidget(self.card_frame, 0, 0)
         self.graph_layout.addWidget(self.bar_graph, 0, 1)
         self.graph_layout.addWidget(self.line_graph, 1, 0)
         self.graph_layout.addWidget(self.pie_graph, 1, 1)
@@ -988,9 +1052,9 @@ class PageThree(QWidget):
 
         self.button_layout = QHBoxLayout()
         self.button_layout.addStretch()  
-        self.button_layout.addWidget(self.switch_page)
         self.button_layout.addWidget(self.csv_export)
         self.button_layout.addWidget(self.excel_export)
+        self.button_layout.addWidget(self.switch_page)
         self.button_layout.addStretch()  
 
         self.main_layout.addLayout(self.dropdown_layout) 
@@ -1000,11 +1064,90 @@ class PageThree(QWidget):
         self.setLayout(self.main_layout)
 
         self.refresh()
+    
+    def update_theme_dropdown(self):
+        current_theme = self.main_window.get_theme()
+        index = self.theme_dropdown.findData(current_theme)
+        if index != -1:
+            self.theme_dropdown.blockSignals(True)
+            self.theme_dropdown.setCurrentIndex(index)
+            self.theme_dropdown.blockSignals(False)
+    
+    def load_graph_theme(self, theme):
+        plt.rcdefaults()
+        if theme == "dark":
+            sns.set_theme(style="darkgrid")
+            plt.rcParams.update({
+                "figure.facecolor": "#121212",
+                "axes.facecolor": "#1e1e1e",
+                "axes.edgecolor": "#0f7f4f",
+                "grid.color": "#2a4f4f",
+                "axes.labelcolor": "#0f7f4f",
+                "xtick.color": "#0f7f4f",
+                "ytick.color": "#0f7f4f",
+                "text.color": "#0f7f4f",
+                "axes.titlecolor": "#0f7f4f",
+                "legend.facecolor": "#1e1e1e",
+                "legend.edgecolor": "#0f7f4f",
+        })
+
+        elif theme == "light":
+            sns.set_theme(style="whitegrid")
+            plt.rcParams.update({
+                "figure.facecolor": "#ddecf9",      
+                "axes.facecolor": "#ffffff",        
+                "axes.edgecolor": "#336699",        
+                "grid.color": "#cce0ff",            
+                "axes.labelcolor": "#003366",       
+                "xtick.color": "#003366",           
+                "ytick.color": "#003366",           
+                "text.color": "#003366",            
+                "axes.titlecolor": "#00264d",       
+                "legend.facecolor": "#e6f2ff",      
+                "legend.edgecolor": "#336699",      
+        })
+
+        elif theme == "pastel":
+            sns.set_theme(style="whitegrid", palette="pastel")
+            plt.rcParams.update({
+                "figure.facecolor": "#fdedf5",      
+                "axes.facecolor": "#faf6f8",        
+                "axes.edgecolor": "#d6a5c9",        
+                "grid.color": "#f2d9e6",            
+                "axes.labelcolor": "#cc6699",       
+                "xtick.color": "#cc6699",           
+                "ytick.color": "#cc6699",           
+                "text.color": "#b34780",            
+                "axes.titlecolor": "#b34780",       
+                "legend.facecolor": "#ffe6f0",      
+                "legend.edgecolor": "#ffcce7",      
+        })
+
+        elif theme == "default":
+            sns.set_theme(style="whitegrid")
+            plt.rcParams.update({
+                "figure.facecolor": "#e6e6e6",      
+                "axes.facecolor": "#f2f2f2",        
+                "axes.edgecolor": "#999999",        
+                "grid.color": "#cccccc",            
+                "axes.labelcolor": "#444444",       
+                "xtick.color": "#444444",           
+                "ytick.color": "#444444",          
+                "text.color": "#333333",           
+                "axes.titlecolor": "#444444",       
+                "legend.facecolor": "#e0e0e0",      
+                "legend.edgecolor": "#b3b3b3",      
+        })
 
     def change_theme(self, index):
         theme = self.theme_dropdown.itemData(index)
         if theme:
+            self.main_window.set_theme(theme)
             self.main_window.load_theme(theme)
+
+            self.load_graph_theme(theme)
+
+            self.update_graph()
     
     def sanitize_filename(self,filename):
         invalid_chars = r'[<>:"|?*]'
@@ -1118,26 +1261,14 @@ class PageThree(QWidget):
         has_area_summary = self.df_area_summary is not None and not self.df_area_summary.empty
         has_raw_data = self.df_raw_data is not None and not self.df_raw_data.empty
 
-        print(f"Has area summary: {has_area_summary}")
-        print(f"Has raw data: {has_raw_data}")
-
-        if not has_area_summary and not has_raw_data:
-            print("No valid data available for graphs")
-            self.bar_graph.draw()
-            self.line_graph.draw()
-            self.pie_graph.draw()
-            return
-
         try:
             ax_line = self.line_graph.figure.add_subplot(111)
             if has_raw_data:
-                print("Generating line graph")
                 sns.lineplot(data=self.df_raw_data, x="Timestamp", y="X", hue="Area Name", ax=ax_line)
                 ax_line.set_title("x position per time")
                 ax_line.set_xlabel("Time (seconds)")
                 ax_line.set_ylabel("X position")
             else:
-                print("No valid data for line graph")
                 ax_line.text(0.5, 0.5, "No data available\nOr invalid data", ha='center', va='center', fontsize=14)
                 ax_line.set_axis_off()
             self.line_graph.figure.tight_layout()
@@ -1185,7 +1316,6 @@ class PageThree(QWidget):
         self.line_graph.draw()
         self.pie_graph.draw()
 
-
     def prepare_data_for_graph(self):
         self.df_raw_data = None
         self.df_area_summary = None
@@ -1205,9 +1335,14 @@ class PageThree(QWidget):
                 self.df_raw_data["Y"] = pd.to_numeric(self.df_raw_data["Y"], errors="coerce")
                 self.df_raw_data["Area Name"] = self.df_raw_data["Area Name"].fillna("Unknown")
                 print("Raw DataFrame:\n", self.df_raw_data.head())
+
+                self.experiment_time = str(self.df_raw_data["Timestamp"].max()) + "  วินาที"
+                self.experiment_time_label.setText(f"ระยะเวลาการทดลอง:\n\n\n\n\t\t{self.experiment_time}")
             except Exception as e:
                 print(f"Error preparing raw_data: {e}")
                 self.df_raw_data = None
+                self.experiment_time = "ไม่มีปรากฏข้อมูล"
+                self.experiment_time_label.setText(f"ระยะเวลาการทดลอง:\n\n\n\n\t\t{self.experiment_time}")
 
         if self.area_summary:
             try:
@@ -1216,12 +1351,20 @@ class PageThree(QWidget):
                 self.df_area_summary["Total Time"] = pd.to_numeric(self.df_area_summary["Total Time"], errors="coerce")
                 self.df_area_summary["Color"] = self.df_area_summary["Color"].apply(parse_color)
                 print("Area Summary DataFrame:\n", self.df_area_summary.head())
+
+                self.total_time = str(self.df_area_summary["Total Time"].sum()) + "  วินาที"
+                self.total_area = str(len(self.df_area_summary)) + "  พื้นที่"
+                self.total_area_label.setText(f"จำนวนพื้นที่ทั้งหมด:\n\n\n\n\t\t{self.total_area}")
+                self.total_time_label.setText(f"ระยะเวลาของพื้นที่ทั้งหมด:\n\n\n\n\t\t{self.total_time}")
             except Exception as e:
                 print(f"Error preparing area_summary: {e}")
                 self.df_area_summary = None
+                self.total_area = "ไม่มีปรากฏข้อมูล"
+                self.total_time = "ไม่มีปรากฏข้อมูล"
+                self.total_area_label.setText(f"จำนวนพื้นที่ทั้งหมด:\n\n\n\n\t\t{self.total_area}")
+                self.total_time_label.setText(f"ระยะเวลาของพื้นที่ทั้งหมด:\n\n\n\n\t\t{self.total_time}")
         
         self.update_graph()
-
 
     def refresh(self):
         self.experiment_dropdown.blockSignals(True)
@@ -1260,12 +1403,29 @@ class PageThree(QWidget):
                 print(f"Raw data not found: {self.raw_data}")
         else:
             print("No experiment selected")
+            self.clear_data()
 
         self.prepare_data_for_graph()
     
+    def clear_data(self):
+        self.area_summary = None
+        self.raw_data = None
+        self.df_raw_data = None
+        self.df_area_summary = None
+        self.current_experiment_id = None
+        self.current_experiment_name = None
+        self.current_experiment_date = None
+        self.total_time = "ไม่มีปรากฏข้อมูล"
+        self.total_area = "ไม่มีปรากฏข้อมูล"
+        self.experiment_time = "ไม่มีปรากฏข้อมูล"
+        self.experiment_time_label.setText(f"ระยะเวลาการทดลอง:\n\n\n\n\t\t{self.experiment_time}")
+        self.total_area_label.setText(f"จำนวนพื้นที่ทั้งหมด:\n\n\n\n\t\t{self.total_area}")
+        self.total_time_label.setText(f"ระยะเวลาของพื้นที่ทั้งหมด:\n\n\n\n\t\t{self.total_time}")
+        
     def switch_to_home_page(self):
         self.experiment_dropdown.setCurrentIndex(self.experiment_dropdown.findData(0))
         self.main_window.set_experiment_id(None)
+        self.clear_data()
         self.main_window.switch_to_page(0)
         
 
@@ -1307,11 +1467,15 @@ class MainWindow(QMainWindow):
         self.setFixedSize(current_widget.size()) 
         self.center_window()  
 
+        if index == 0 and isinstance(current_widget, PageOne):
+            current_widget.update_theme_dropdown()
+
         if index == 1 and isinstance(current_widget, PageTwo):
             current_widget.update_video()
 
         if index == 2 and isinstance(current_widget, PageThree):  
             current_widget.refresh()
+            current_widget.update_theme_dropdown()
 
     def center_window(self):
         window_rect = self.frameGeometry()
@@ -1363,7 +1527,11 @@ class MainWindow(QMainWindow):
     def get_experiment_id(self):
         return self.experiment_id
 
+    def set_theme(self, theme_name):
+        self.current_theme = theme_name
 
+    def get_theme(self):
+        return self.current_theme
 
 def main():
     app = QApplication(sys.argv)

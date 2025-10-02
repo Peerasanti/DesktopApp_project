@@ -85,14 +85,20 @@ QPushButton#MainButton:pressed {
 /* 📊 Table                 */
 /* ======================== */
 QTableWidget {
-    background-color: #e0e0e0;  /* เทากว่าเดิม */
+    background-color: #e0e0e0;  
     color: #00264d;
     gridline-color: #99b3cc;
     border: 2px solid #99b3cc;
     border-radius: 6px;
 }
 QTableCornerButton::section {
-    background-color: #cccccc;   
+    background-color: #cce0f0;
+    color: #00264d;
+    font-weight: bold;
+    padding: 6px;
+    border: 1px solid #99b3cc;
+    margin: 0;
+    padding: 0; 
 }
 QHeaderView::section {
     background-color: #cce0f0;

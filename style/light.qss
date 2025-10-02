@@ -92,7 +92,13 @@ QTableWidget {
     border-radius: 6px;
 }
 QTableCornerButton::section {
-    background-color: #f0f0f0;   
+    background-color: #e6f2ff;
+    color: #004c99;
+    font-weight: bold;
+    padding: 6px;
+    border: 1px solid #3399ff;  
+    margin: 0;
+    padding: 0; 
 }
 QHeaderView::section {
     background-color: #e6f2ff;

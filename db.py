@@ -217,6 +217,45 @@ class DatabaseManager:
         except sqlite3.Error as e:
             print(f"Error fetching experiment by ID: {e}")
             return None
+    
+    def get_experiment_note_by_id(self, experiment_id):
+        try:
+            self.cursor.execute("SELECT detail_note FROM experiments WHERE experiment_id = ?", (experiment_id,))
+            result = self.cursor.fetchone()
+            return result[0] if result else None
+        except sqlite3.Error as e:
+            print(f"Error fetching experiment note by ID: {e}")
+            return None
+    
+    def delete_experiment_by_id(self, experiment_id):
+        try:
+            self.cursor.execute("DELETE FROM experiments WHERE experiment_id = ?", (experiment_id,))
+            self.conn.commit()
+            return True
+        except sqlite3.Error as e:
+            self.conn.rollback()
+            print(f"Error deleting experiment: {e}")
+            return False
+    
+    def delete_area_summary_by_experiment_id(self, experiment_id):
+        try:
+            self.cursor.execute("DELETE FROM area_summary WHERE experiment_id = ?", (experiment_id,))
+            self.conn.commit()
+            return True
+        except sqlite3.Error as e:
+            self.conn.rollback()
+            print(f"Error deleting area summary: {e}")
+            return False
+    
+    def delete_raw_data_by_experiment_id(self, experiment_id):
+        try:
+            self.cursor.execute("DELETE FROM raw_data WHERE experiment_id = ?", (experiment_id,))
+            self.conn.commit()
+            return True
+        except sqlite3.Error as e:
+            self.conn.rollback()
+            print(f"Error deleting raw data: {e}")
+            return False
         
     def close(self):
         if hasattr(self, 'conn') and self.conn:

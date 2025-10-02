@@ -1,6 +1,3 @@
-from matplotlib import font_manager
-
-# แสดงรายชื่อฟอนต์ทั้งหมดที่ Matplotlib หาเจอ
-for font in font_manager.findSystemFonts(fontpaths=None, fontext='ttf'):
-    if "TH" in font or "Thai" in font or "Sarabun" in font or "Angsana" in font:
-        print(font)
+base_dir = os.path.dirname(os.path.abspath(__file__))
+db_path = os.path.join(base_dir, "..", "database", "data.db")
+print(os.path.exists(db_path))
