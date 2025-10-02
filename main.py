@@ -1005,6 +1005,8 @@ class PageThree(QWidget):
         self.theme_dropdown.currentIndexChanged.connect(self.change_theme)
         self.experiment_dropdown = self.create_experiment_dropdown()
 
+        self.experiment_info = QLabel(f"Experiment ID: {self.current_experiment_id}\t\tExperiment Name: {self.current_experiment_name}\tExperiment Date: {self.current_experiment_date}")
+
         self.bar_graph = FigureCanvas(plt.Figure(figsize=(4.5, 3.5)))
         self.line_graph = FigureCanvas(plt.Figure(figsize=(4.5, 3.5)))
         self.pie_graph = FigureCanvas(plt.Figure(figsize=(4.5, 3.5)))
@@ -1012,7 +1014,8 @@ class PageThree(QWidget):
         self.main_layout = QVBoxLayout()
 
         top_row_layout = QHBoxLayout()
-        top_row_layout.addStretch()                     
+        top_row_layout.addWidget(self.experiment_info) 
+        top_row_layout.addStretch()                  
         top_row_layout.addWidget(self.theme_dropdown)
 
         self.dropdown_layout = QVBoxLayout()
@@ -1277,13 +1280,15 @@ class PageThree(QWidget):
             ax_pie = self.pie_graph.figure.add_subplot(111)
             if has_area_summary:
                 print("Generating bar and pie graphs")
-                sns.barplot(data=self.df_area_summary, x="Area Name", y="Hit Count", hue="Area Name", palette=list(self.df_area_summary["Color"]), legend=False, ax=ax_bar)
+                sns.barplot(data=self.df_area_summary, x="Area Name", y="Hit Count", hue="Area Name", palette=list(self.df_area_summary["Color"]), legend=False, ax=ax_bar, edgecolor='#444444', linewidth=1)
+                for i, v in enumerate(self.df_area_summary["Hit Count"]):
+                    ax_bar.text(i, (v/2), str(v), ha='center', va='bottom', fontsize=10)
                 ax_bar.set_title("Area per number of detections")
                 ax_bar.set_xlabel("Area Name")
                 ax_bar.set_ylabel("Number of Detections")
 
                 if self.df_area_summary["Total Time"].sum() > 0:
-                    ax_pie.pie(self.df_area_summary["Total Time"], labels=self.df_area_summary["Area Name"], colors=self.df_area_summary["Color"])
+                    ax_pie.pie(self.df_area_summary["Total Time"], labels=self.df_area_summary["Area Name"], colors=self.df_area_summary["Color"], shadow=True, autopct='%1.1f%%')
                     ax_pie.set_title("Area per total time")
                 else : 
                     print("No valid data available for pie graph")
@@ -1392,6 +1397,7 @@ class PageThree(QWidget):
             experiment = self.main_window.db.get_experiment_by_id(selected_id)
             self.current_experiment_name = experiment[2] if experiment else "None"
             self.current_experiment_date = experiment[3] if experiment else "None"
+            self.experiment_info.setText(f"Experiment ID: {self.current_experiment_id}\t\tExperiment Name: {self.current_experiment_name}\tExperiment Date: {self.current_experiment_date}")
 
             if self.area_summary and self.raw_data:
                 print(f"\nLoad Data success Experiment ID: {self.current_experiment_id} Experiment Name: {self.current_experiment_name}\narea_summary:\n{self.area_summary[0]}\nraw_data:\n{self.raw_data[0]}")
@@ -1421,6 +1427,7 @@ class PageThree(QWidget):
         self.experiment_time_label.setText(f"ระยะเวลาการทดลอง:\n\n\n\n\t\t{self.experiment_time}")
         self.total_area_label.setText(f"จำนวนพื้นที่ทั้งหมด:\n\n\n\n\t\t{self.total_area}")
         self.total_time_label.setText(f"ระยะเวลาของพื้นที่ทั้งหมด:\n\n\n\n\t\t{self.total_time}")
+        self.experiment_info.setText(f"Experiment ID: {self.current_experiment_id}\t\tExperiment Name: {self.current_experiment_name}\tExperiment Date: {self.current_experiment_date}")
         
     def switch_to_home_page(self):
         self.experiment_dropdown.setCurrentIndex(self.experiment_dropdown.findData(0))
