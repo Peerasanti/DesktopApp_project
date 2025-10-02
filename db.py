@@ -256,6 +256,15 @@ class DatabaseManager:
             self.conn.rollback()
             print(f"Error deleting raw data: {e}")
             return False
+    
+    def get_experiment_type_by_id(self, experiment_type_id):
+        try:
+            self.cursor.execute("SELECT type_name FROM experiment_type WHERE experiment_type_id = ?", (experiment_type_id,))
+            result = self.cursor.fetchone()
+            return result[0] if result else None
+        except sqlite3.Error as e:
+            print(f"Error fetching experiment type by ID: {e}")
+            return None
         
     def close(self):
         if hasattr(self, 'conn') and self.conn:

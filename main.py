@@ -973,9 +973,11 @@ class PageThree(QWidget):
         self.current_experiment_id = None
         self.current_experiment_name = None
         self.current_experiment_date = None
+        self.current_experiment_type = None
         self.total_time = "ไม่มีปรากฏข้อมูล"
         self.total_area = "ไม่มีปรากฏข้อมูล"
         self.experiment_time = "ไม่มีปรากฏข้อมูล"
+        self.avg_time = "ไม่มีปรากฏข้อมูล"
 
         self.switch_page = QPushButton("กลับไปยังหน้าแรก")
         self.switch_page.clicked.connect(self.switch_to_home_page)
@@ -1005,7 +1007,7 @@ class PageThree(QWidget):
         self.theme_dropdown.currentIndexChanged.connect(self.change_theme)
         self.experiment_dropdown = self.create_experiment_dropdown()
 
-        self.experiment_info = QLabel(f"Experiment ID: {self.current_experiment_id}\t\tExperiment Name: {self.current_experiment_name}\tExperiment Date: {self.current_experiment_date}")
+        self.experiment_info = QLabel(f"Experiment ID: {self.current_experiment_id}\t\tExperiment Name: {self.current_experiment_name}\tExperiment Date: {self.current_experiment_date}\tExperiment Type: {self.current_experiment_type}")
 
         self.bar_graph = FigureCanvas(plt.Figure(figsize=(4.5, 3.5)))
         self.line_graph = FigureCanvas(plt.Figure(figsize=(4.5, 3.5)))
@@ -1014,8 +1016,7 @@ class PageThree(QWidget):
         self.main_layout = QVBoxLayout()
 
         top_row_layout = QHBoxLayout()
-        top_row_layout.addWidget(self.experiment_info) 
-        top_row_layout.addStretch()                  
+        top_row_layout.addWidget(self.experiment_info)               
         top_row_layout.addWidget(self.theme_dropdown)
 
         self.dropdown_layout = QVBoxLayout()
@@ -1037,9 +1038,13 @@ class PageThree(QWidget):
         self.experiment_time_label = QLabel(f"ระยะเวลาการทดลอง:\n\n\n\n\t\t{self.experiment_time}")
         self.experiment_time_label.setAlignment(Qt.AlignTop)
         self.experiment_time_label.setStyleSheet("font-size: 16px;")
+        self.avg_time_label = QLabel(f"ค่าเฉลี่ยเวลาของพื้นที่ทั้งหมด:\n\n\n\n\t\t{self.avg_time}")
+        self.avg_time_label.setAlignment(Qt.AlignTop)
+        self.avg_time_label.setStyleSheet("font-size: 16px;")
         self.card_layout.addWidget(self.experiment_time_label, 0, 0)
         self.card_layout.addWidget(self.total_time_label, 0, 1)
         self.card_layout.addWidget(self.total_area_label, 1, 0)
+        self.card_layout.addWidget(self.avg_time_label, 1, 1)
         self.card_layout.setContentsMargins(20, 20, 20, 20)
 
         self.graph_layout = QGridLayout()
@@ -1359,8 +1364,10 @@ class PageThree(QWidget):
 
                 self.total_time = str(self.df_area_summary["Total Time"].sum()) + "  วินาที"
                 self.total_area = str(len(self.df_area_summary)) + "  พื้นที่"
+                self.avg_time = str(self.df_area_summary["Total Time"].mean()) + "  วินาที"
                 self.total_area_label.setText(f"จำนวนพื้นที่ทั้งหมด:\n\n\n\n\t\t{self.total_area}")
                 self.total_time_label.setText(f"ระยะเวลาของพื้นที่ทั้งหมด:\n\n\n\n\t\t{self.total_time}")
+                self.avg_time_label.setText(f"ระยะเวลาเฉลี่ยของพื้นที่ทั้งหมด:\n\n\n\n\t\t{self.avg_time}")
             except Exception as e:
                 print(f"Error preparing area_summary: {e}")
                 self.df_area_summary = None
@@ -1368,6 +1375,7 @@ class PageThree(QWidget):
                 self.total_time = "ไม่มีปรากฏข้อมูล"
                 self.total_area_label.setText(f"จำนวนพื้นที่ทั้งหมด:\n\n\n\n\t\t{self.total_area}")
                 self.total_time_label.setText(f"ระยะเวลาของพื้นที่ทั้งหมด:\n\n\n\n\t\t{self.total_time}")
+                self.avg_time_label.setText(f"ระยะเวลาเฉลี่ยของพื้นที่ทั้งหมด:\n\n\n\n\t\t{self.avg_time}")
         
         self.update_graph()
 
@@ -1397,7 +1405,8 @@ class PageThree(QWidget):
             experiment = self.main_window.db.get_experiment_by_id(selected_id)
             self.current_experiment_name = experiment[2] if experiment else "None"
             self.current_experiment_date = experiment[3] if experiment else "None"
-            self.experiment_info.setText(f"Experiment ID: {self.current_experiment_id}\t\tExperiment Name: {self.current_experiment_name}\tExperiment Date: {self.current_experiment_date}")
+            self.current_experiment_type = self.main_window.db.get_experiment_type_by_id(experiment[1])
+            self.experiment_info.setText(f"Experiment ID: {self.current_experiment_id}\t\tExperiment Name: {self.current_experiment_name}\tExperiment Date: {self.current_experiment_date}\tExpeiment Type: {self.current_experiment_type}")
 
             if self.area_summary and self.raw_data:
                 print(f"\nLoad Data success Experiment ID: {self.current_experiment_id} Experiment Name: {self.current_experiment_name}\narea_summary:\n{self.area_summary[0]}\nraw_data:\n{self.raw_data[0]}")
@@ -1421,14 +1430,17 @@ class PageThree(QWidget):
         self.current_experiment_id = None
         self.current_experiment_name = None
         self.current_experiment_date = None
+        self.current_experiment_type = None
         self.total_time = "ไม่มีปรากฏข้อมูล"
         self.total_area = "ไม่มีปรากฏข้อมูล"
         self.experiment_time = "ไม่มีปรากฏข้อมูล"
+        self.avg_time = "ไม่มีปรากฏข้อมูล"
         self.experiment_time_label.setText(f"ระยะเวลาการทดลอง:\n\n\n\n\t\t{self.experiment_time}")
         self.total_area_label.setText(f"จำนวนพื้นที่ทั้งหมด:\n\n\n\n\t\t{self.total_area}")
         self.total_time_label.setText(f"ระยะเวลาของพื้นที่ทั้งหมด:\n\n\n\n\t\t{self.total_time}")
-        self.experiment_info.setText(f"Experiment ID: {self.current_experiment_id}\t\tExperiment Name: {self.current_experiment_name}\tExperiment Date: {self.current_experiment_date}")
-        
+        self.experiment_info.setText(f"Experiment ID: {self.current_experiment_id}\t\tExperiment Name: {self.current_experiment_name}\tExperiment Date: {self.current_experiment_date}\tExperiment Type: {self.current_experiment_type}")
+        self.avg_time_label.setText(f"ระยะเวลาเฉลี่ยของพื้นที่ทั้งหมด:\n\n\n\n\t\t{self.avg_time}")
+
     def switch_to_home_page(self):
         self.experiment_dropdown.setCurrentIndex(self.experiment_dropdown.findData(0))
         self.main_window.set_experiment_id(None)
