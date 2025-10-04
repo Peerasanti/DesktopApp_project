@@ -27,7 +27,7 @@ from PyQt5.QtWidgets import ( QApplication, QMainWindow, QLabel, QWidget, QVBoxL
                              QStackedWidget, QPushButton, QFileDialog, QDialog, QHBoxLayout, 
                              QFormLayout, QLineEdit, QDialogButtonBox, QDesktopWidget, QInputDialog,
                              QColorDialog, QTableWidget, QTableWidgetItem, QHeaderView, QMessageBox,
-                             QComboBox, QTextEdit, QGridLayout, QFrame)
+                             QComboBox, QTextEdit, QGridLayout, QFrame, QLineEdit)
 from PyQt5.QtCore import Qt, QTimer, QSize, QDateTime, QLocale
 from PyQt5.QtGui import QIcon, QPixmap, QImage, QFont, QColor, QPainter
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
@@ -255,13 +255,14 @@ class PageOne(QWidget):
             self.label.setText("❌ ยังไม่ได้เลือกไฟล์วิดีโอหรือกล้อง")
             return
 
-        dialog = ExperimentSetupDialog(self.main_window.db, self)
+        preset_data = {"video_path": self.video_path}
+        dialog = ExperimentSetupDialog(self.main_window.db, self, preset_data=preset_data)
         if dialog.exec_() == QDialog.Accepted:
-            experiment_type_id, name, date, detail = dialog.get_experiment_data()
+            experiment_type_id, name, date, detail, video_path = dialog.get_experiment_data()
             if experiment_type_id == 0:
                 QMessageBox.warning(self, "ข้อผิดพลาด", "กรุณาเลือกประเภทการทดลอง!")
                 return
-            experiment_id = self.main_window.db.add_experiment(experiment_type_id, name, date, detail if detail is not None else "ไม่มีรายละเอียดการทดลอง", self.video_path)
+            experiment_id = self.main_window.db.add_experiment(experiment_type_id, name, date, detail if detail is not None else "ไม่มีรายละเอียดการทดลอง", video_path)
             if experiment_id:
                 self.main_window.set_experiment_name(name)
                 self.main_window.set_experiment_id(experiment_id)
@@ -297,12 +298,12 @@ class PageOne(QWidget):
 
 
 class ExperimentSetupDialog(QDialog):
-    def __init__(self, db, parent=None):
+    def __init__(self, db, parent=None, preset_data=None):
         super().__init__(parent)
         self.db = db
         self.setWindowTitle("ตั้งค่าการทดลอง")
         self.setModal(True)  
-        self.setFixedSize(550, 400)
+        self.setFixedSize(570, 500)
 
         self.name_input = QLineEdit(self)
         self.date_input = QLineEdit(self)
@@ -311,16 +312,37 @@ class ExperimentSetupDialog(QDialog):
                 QDateTime.currentDateTime(), "yyyy-MM-dd HH:mm:ss"
             )
         )
+        self.video_path_input = QLineEdit(self)
         self.type_combo = QComboBox(self)
         self.detail = QTextEdit(self)
-        self.detail.setFixedHeight(80)
+        self.detail.setViewportMargins(10, 10, 10, 10)
+        self.detail.setLineWrapMode(QTextEdit.NoWrap)
+        self.detail.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.detail.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.detail.setFixedHeight(120)
 
         experiment_types = self.db.get_experiment_types()
         self.type_combo.addItem("เลือกประเภทการทดลอง", 0)
         for type_id, type_name in experiment_types:
             self.type_combo.addItem(type_name, type_id)
+        
+        if preset_data:
+            if "name" in preset_data:
+                self.name_input.setText(preset_data["name"])
+            if "detail" in preset_data:
+                self.detail.setPlainText(preset_data["detail"])
+            if "date" in preset_data:
+                self.date_input.setText(preset_data["date"])
+                self.date_input.setReadOnly(True)
+            if "type_id" in preset_data:
+                index = self.type_combo.findData(preset_data["type_id"])
+                if index != -1:
+                    self.type_combo.setCurrentIndex(index)
+            if "video_path" in preset_data:
+                self.video_path_input.setText(preset_data["video_path"])
 
         layout = QFormLayout()
+        layout.addRow("ที่อยู่ของวิดีโอหรือกล้อง:", self.video_path_input)
         layout.addRow("วันที่:", self.date_input)
         layout.addRow("ชื่อการทดลอง:", self.name_input)
         layout.addRow("ประเภทการทดลอง:", self.type_combo)
@@ -358,10 +380,11 @@ class ExperimentSetupDialog(QDialog):
         experiment_type_id = self.type_combo.currentData()
         name = self.name_input.text()
         date = self.date_input.text()
+        video_path = self.video_path_input.text()
         detail = self.detail.toPlainText()
         if not name: 
             raise ValueError("ชื่อการทดลองต้องไม่ว่าง")
-        return experiment_type_id, name, date, detail
+        return experiment_type_id, name, date, detail, video_path
 
 
 
@@ -383,7 +406,14 @@ class PageTwo(QWidget):
         self.hide_ui = False
         self.hide_detail_notes = True
 
-        self.model = tf.keras.models.load_model("model/model_for_rat_V2.keras", safe_mode=False)
+        if getattr(sys, 'frozen', False):
+            base_path = sys._MEIPASS  
+        else:
+            base_path = os.path.abspath(".")
+
+        model_path = os.path.join(base_path, "model", "model_for_rat_V2.keras")
+
+        self.model = tf.keras.models.load_model(model_path, safe_mode=False)
         self.polygon_manager = PolygonManager()
         self.drawing_polygon = False
         self.active_started = False
@@ -406,16 +436,24 @@ class PageTwo(QWidget):
         self.summary_button = QPushButton("สรุปผล")
         self.summary_button.clicked.connect(self.submit_summary)
         self.summary_button.setObjectName("GreenButton")
-        
 
-        button_layout = QHBoxLayout()
-        button_layout.addWidget(self.polygon_table)
+        self.detail_note = QPushButton("รายละเอียดการทดลอง")
+        self.detail_note.clicked.connect(self.show_detail_notes)
+        self.detail_note.setObjectName("MainButton")
+
+        button_layout = QVBoxLayout()
+        button_layout.addWidget(self.detail_note)
         button_layout.addWidget(self.back_button)
         button_layout.addWidget(self.summary_button)
+        
+
+        table_layout = QHBoxLayout()
+        table_layout.addWidget(self.polygon_table)
+        table_layout.addLayout(button_layout)
 
         main_layout = QVBoxLayout()
-        main_layout.addWidget(self.video_label, stretch=3)
-        main_layout.addLayout(button_layout)
+        main_layout.addWidget(self.video_label, stretch=1)
+        main_layout.addLayout(table_layout)
 
         self.setLayout(main_layout)
 
@@ -442,7 +480,7 @@ class PageTwo(QWidget):
             self.next_frame()
             self.update_polygon_table()
         elif key == Qt.Key_V:
-            self.hide_detail_notes = not self.hide_detail_notes
+            self.show_detail_notes()
             self.next_frame()
         elif self.move_mode:
             move_distance = 15
@@ -462,6 +500,35 @@ class PageTwo(QWidget):
         else:
             super().keyPressEvent(event)
     
+    def show_detail_notes(self):
+        dialog = QDialog(self)
+        dialog.setWindowTitle("รายละเอียดการทดลอง")
+        dialog.resize(550, 400)  
+        layout = QVBoxLayout(dialog)
+
+        label = QLabel("สามารถแก้ไขรายละเอียดการทดลองได้")
+        layout.addWidget(label)
+
+        text_edit = QTextEdit()
+        text_edit.setPlainText(self.experiment_note) 
+        text_edit.setViewportMargins(10, 10, 10, 10)
+        text_edit.setLineWrapMode(QTextEdit.NoWrap)  
+        text_edit.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)  
+        text_edit.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        layout.addWidget(text_edit)
+
+        button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        button_box.accepted.connect(dialog.accept)
+        button_box.rejected.connect(dialog.reject)
+        layout.addWidget(button_box)
+
+        if dialog.exec_() == QDialog.Accepted:
+            new_detail = text_edit.toPlainText().strip()
+            if new_detail:
+                experiment_id = self.experiment_id
+                self.main_window.db.update_experiment_detail_note(experiment_id, new_detail)
+                self.experiment_note = new_detail
+
     def change_experiment_name(self):
         self.experiment_name, ok = QInputDialog.getText(self, "แก้ไขรหัสการทดลอง", "กรุณาตั้งรหัส", text=self.experiment_name)
         if not ok or not self.experiment_name.strip():
@@ -974,10 +1041,12 @@ class PageThree(QWidget):
         self.current_experiment_name = None
         self.current_experiment_date = None
         self.current_experiment_type = None
+        self.current_experiment_note = None
         self.total_time = "ไม่มีปรากฏข้อมูล"
         self.total_area = "ไม่มีปรากฏข้อมูล"
         self.experiment_time = "ไม่มีปรากฏข้อมูล"
         self.avg_time = "ไม่มีปรากฏข้อมูล"
+        self.existing_data = None
 
         self.switch_page = QPushButton("กลับไปยังหน้าแรก")
         self.switch_page.clicked.connect(self.switch_to_home_page)
@@ -985,11 +1054,11 @@ class PageThree(QWidget):
 
         self.csv_export = QPushButton("Export to CSV")
         self.csv_export.clicked.connect(self.export_to_csv)
-        self.csv_export.setObjectName("YellowButton")
+        self.csv_export.setObjectName("GreenButton")
 
         self.excel_export = QPushButton("Export to Excel")
         self.excel_export.clicked.connect(self.export_to_excel)
-        self.excel_export.setObjectName("YellowButton")
+        self.excel_export.setObjectName("GreenButton")
 
         self.theme_dropdown = QComboBox()
         self.theme_dropdown.setFixedSize(180, 32)
@@ -1007,7 +1076,15 @@ class PageThree(QWidget):
         self.theme_dropdown.currentIndexChanged.connect(self.change_theme)
         self.experiment_dropdown = self.create_experiment_dropdown()
 
-        self.experiment_info = QLabel(f"Experiment ID: {self.current_experiment_id}\t\tExperiment Name: {self.current_experiment_name}\tExperiment Date: {self.current_experiment_date}\tExperiment Type: {self.current_experiment_type}")
+        self.experiment_info = QLabel(f"ID ของการทดลอง: {self.current_experiment_id}\t\tชื่อการทดลอง: {self.current_experiment_name}\t\tวันที่ทดลอง: {self.current_experiment_date}\tประเภทการทดลอง: {self.current_experiment_type}")
+
+        self.show_detail = QPushButton("Show Detail Note")
+        self.show_detail.clicked.connect(self.show_detail_notes)
+        self.show_detail.setObjectName("MainButton")
+
+        self.edit_experiment = QPushButton("แก้ไขข้อมูลการทดลอง")
+        self.edit_experiment.clicked.connect(self.edit_experiment_info)
+        self.edit_experiment.setObjectName("YellowButton")
 
         self.bar_graph = FigureCanvas(plt.Figure(figsize=(4.5, 3.5)))
         self.line_graph = FigureCanvas(plt.Figure(figsize=(4.5, 3.5)))
@@ -1016,7 +1093,8 @@ class PageThree(QWidget):
         self.main_layout = QVBoxLayout()
 
         top_row_layout = QHBoxLayout()
-        top_row_layout.addWidget(self.experiment_info)               
+        top_row_layout.addWidget(self.experiment_info, stretch=2) 
+        top_row_layout.addWidget(self.show_detail)              
         top_row_layout.addWidget(self.theme_dropdown)
 
         self.dropdown_layout = QVBoxLayout()
@@ -1059,7 +1137,7 @@ class PageThree(QWidget):
         self.main_layout.setStretchFactor(self.graph_layout, 1)   
 
         self.button_layout = QHBoxLayout()
-        self.button_layout.addStretch()  
+        self.button_layout.addWidget(self.edit_experiment)
         self.button_layout.addWidget(self.csv_export)
         self.button_layout.addWidget(self.excel_export)
         self.button_layout.addWidget(self.switch_page)
@@ -1073,6 +1151,49 @@ class PageThree(QWidget):
 
         self.refresh()
     
+    def edit_experiment_info(self):
+        preset_data = self.existing_data
+        experiment_id = self.current_experiment_id
+        dialog = ExperimentSetupDialog(self.main_window.db, self, preset_data=preset_data)
+        if dialog.exec_() == QDialog.Accepted:
+            experiment_type_id, name, date, detail, video_path = dialog.get_experiment_data()
+            if experiment_type_id == 0:
+                QMessageBox.warning(self, "ข้อผิดพลาด", "กรุณาเลือกประเภทการทดลอง!")
+                return
+            self.main_window.db.update_experiment(experiment_id, experiment_type_id, name, date, detail if detail is not None else "ไม่มีรายละเอียดการทดลอง", video_path)
+
+    def show_detail_notes(self):
+        experiment_id = self.current_experiment_id
+        if not experiment_id:
+            return
+        
+        dialog = QDialog(self)
+        dialog.setWindowTitle("รายละเอียดการทดลอง")
+        dialog.resize(550, 400)  
+        layout = QVBoxLayout(dialog)
+
+        label = QLabel("สามารถแก้ไขรายละเอียดการทดลองได้")
+        layout.addWidget(label)
+
+        text_edit = QTextEdit()
+        text_edit.setPlainText(self.current_experiment_note) 
+        text_edit.setViewportMargins(10, 10, 10, 10)
+        text_edit.setLineWrapMode(QTextEdit.NoWrap)  
+        text_edit.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)  
+        text_edit.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        layout.addWidget(text_edit)
+
+        button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        button_box.accepted.connect(dialog.accept)
+        button_box.rejected.connect(dialog.reject)
+        layout.addWidget(button_box)
+
+        if dialog.exec_() == QDialog.Accepted:
+            new_detail = text_edit.toPlainText().strip()
+            if new_detail:
+                self.main_window.db.update_experiment_detail_note(experiment_id, new_detail)
+                self.current_experiment_note = new_detail
+
     def update_theme_dropdown(self):
         current_theme = self.main_window.get_theme()
         index = self.theme_dropdown.findData(current_theme)
@@ -1405,8 +1526,16 @@ class PageThree(QWidget):
             experiment = self.main_window.db.get_experiment_by_id(selected_id)
             self.current_experiment_name = experiment[2] if experiment else "None"
             self.current_experiment_date = experiment[3] if experiment else "None"
+            self.current_experiment_note = experiment[4] if experiment else "None"
             self.current_experiment_type = self.main_window.db.get_experiment_type_by_id(experiment[1])
-            self.experiment_info.setText(f"Experiment ID: {self.current_experiment_id}\t\tExperiment Name: {self.current_experiment_name}\tExperiment Date: {self.current_experiment_date}\tExpeiment Type: {self.current_experiment_type}")
+            self.experiment_info.setText(f"ID ของการทดลอง: {self.current_experiment_id}\t\tชื่อการทดลอง: {self.current_experiment_name}\t\tวันที่ทดลอง: {self.current_experiment_date}\tประเภทการทดลอง: {self.current_experiment_type}")
+            self.existing_data = {
+                "name" : experiment[2],
+                "type_id" : experiment[1],
+                "detail" : experiment[4],
+                "date" : experiment[3],
+                "video_path" : experiment[5]
+            }
 
             if self.area_summary and self.raw_data:
                 print(f"\nLoad Data success Experiment ID: {self.current_experiment_id} Experiment Name: {self.current_experiment_name}\narea_summary:\n{self.area_summary[0]}\nraw_data:\n{self.raw_data[0]}")
@@ -1431,6 +1560,8 @@ class PageThree(QWidget):
         self.current_experiment_name = None
         self.current_experiment_date = None
         self.current_experiment_type = None
+        self.current_experiment_note = None
+        self.existing_data = None
         self.total_time = "ไม่มีปรากฏข้อมูล"
         self.total_area = "ไม่มีปรากฏข้อมูล"
         self.experiment_time = "ไม่มีปรากฏข้อมูล"
@@ -1438,7 +1569,7 @@ class PageThree(QWidget):
         self.experiment_time_label.setText(f"ระยะเวลาการทดลอง:\n\n\n\n\t\t{self.experiment_time}")
         self.total_area_label.setText(f"จำนวนพื้นที่ทั้งหมด:\n\n\n\n\t\t{self.total_area}")
         self.total_time_label.setText(f"ระยะเวลาของพื้นที่ทั้งหมด:\n\n\n\n\t\t{self.total_time}")
-        self.experiment_info.setText(f"Experiment ID: {self.current_experiment_id}\t\tExperiment Name: {self.current_experiment_name}\tExperiment Date: {self.current_experiment_date}\tExperiment Type: {self.current_experiment_type}")
+        self.experiment_info.setText(f"ID ของการทดลอง: {self.current_experiment_id}\t\tชื่อการทดลอง: {self.current_experiment_name}\t\tวันที่ทดลอง: {self.current_experiment_date}\tประเภทการทดลอง: {self.current_experiment_type}")
         self.avg_time_label.setText(f"ระยะเวลาเฉลี่ยของพื้นที่ทั้งหมด:\n\n\n\n\t\t{self.avg_time}")
 
     def switch_to_home_page(self):
@@ -1551,6 +1682,8 @@ class MainWindow(QMainWindow):
 
     def get_theme(self):
         return self.current_theme
+
+
 
 def main():
     app = QApplication(sys.argv)

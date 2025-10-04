@@ -133,6 +133,20 @@ class DatabaseManager:
             print(f"Error fetching experiment types: {e}")
             return []
     
+    def update_experiment(self, experiment_id, experiment_type_id, name, date, detail_note, video_path):
+        try:
+            self.cursor.execute("""
+                UPDATE experiments 
+                SET experiment_type_id = ?, name = ?, date = ?, detail_note = ?, video_path = ?
+                WHERE experiment_id = ?
+            """, (experiment_type_id, name, date, detail_note, video_path, experiment_id))
+            self.conn.commit()
+            return True
+        except sqlite3.Error as e:
+            self.conn.rollback()
+            print(f"Error updating experiment: {e}")
+            return False
+        
     def update_experiment_name(self, experiment_id, new_name):
         try:
             self.cursor.execute("""
@@ -145,6 +159,20 @@ class DatabaseManager:
         except sqlite3.Error as e:
             self.conn.rollback()
             print(f"Error updating experiment name: {e}")
+            return False
+    
+    def update_experiment_detail_note(self, experiment_id, new_detail_note):
+        try:
+            self.cursor.execute("""
+                UPDATE experiments 
+                SET detail_note = ?
+                WHERE experiment_id = ?
+            """, (new_detail_note, experiment_id))
+            self.conn.commit()
+            return True
+        except sqlite3.Error as e:
+            self.conn.rollback()
+            print(f"Error updating experiment detail note: {e}")
             return False
     
     def update_area_summary(self, area_id, area_name, color, hit_count, total_time, area_point):
