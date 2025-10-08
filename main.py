@@ -405,6 +405,8 @@ class PageTwo(QWidget):
         self.process_every_n = 3
         self.hide_ui = False
         self.hide_detail_notes = True
+        self.running_time = 0
+        self.ex_timer = 0
 
         if getattr(sys, 'frozen', False):
             base_path = sys._MEIPASS  
@@ -441,8 +443,18 @@ class PageTwo(QWidget):
         self.detail_note.clicked.connect(self.show_detail_notes)
         self.detail_note.setObjectName("MainButton")
 
+        self.restart_button = QPushButton("เริ่มทดลอง/จับเวลาใหม่")
+        self.restart_button.clicked.connect(self.restart_experiment)
+        self.restart_button.setObjectName("GreenButton")
+
+        self.experiment_timer = QPushButton("ตั้งเวลาการทดลอง")
+        self.experiment_timer.clicked.connect(self.set_timer)
+        self.experiment_timer.setObjectName("MainButton")
+
         button_layout = QVBoxLayout()
+        button_layout.addWidget(self.restart_button)
         button_layout.addWidget(self.detail_note)
+        button_layout.addWidget(self.experiment_timer)
         button_layout.addWidget(self.back_button)
         button_layout.addWidget(self.summary_button)
         
@@ -459,6 +471,32 @@ class PageTwo(QWidget):
 
         self.timer = QTimer()
         self.timer.timeout.connect(self.next_frame)
+
+    def restart_experiment(self):
+        self.frame_count = 0
+        self.raw_data = []
+        for polygon in self.polygon_manager.polygons.values(): 
+            polygon.hit_count = 0
+            polygon.hit_time = 0
+        self.update_polygon_table()
+
+    def set_timer(self):
+        while True:
+            get_timer, ok = QInputDialog.getText(self, "ตั้งเวลาการทดลอง", "กรุณาตั้งเวลาเป็นหน่วย \"นาที\"", text=str(self.ex_timer // 60))
+            if not ok or not get_timer.strip():
+                return  
+            try:
+                self.ex_timer = int(get_timer) * 60
+                break  
+            except ValueError:
+                QMessageBox.warning(self, "ข้อผิดพลาด", "กรุณากรอกเวลาเป็นตัวเลขเท่านั้น")
+    
+    def is_time_out(self):
+        if self.ex_timer == 0:
+            return 
+        elif self.ex_timer == self.running_time:
+            self.stop_video()
+            self.submit_summary(skip_dialog=True)
 
     def keyPressEvent(self, event):
         key = event.key()
@@ -481,6 +519,9 @@ class PageTwo(QWidget):
             self.update_polygon_table()
         elif key == Qt.Key_V:
             self.show_detail_notes()
+            self.next_frame()
+        elif key == Qt.Key_T:
+            self.set_timer()
             self.next_frame()
         elif self.move_mode:
             move_distance = 15
@@ -625,7 +666,6 @@ class PageTwo(QWidget):
 
     def stop_video(self):
         self.timer.stop()
-        self.clear_all_data()
         if self.cap:
             self.cap.release()
             self.cap = None
@@ -710,6 +750,7 @@ class PageTwo(QWidget):
                 return
             current_frame = frame
 
+        self.is_time_out()
         margin = 10
         size = self.video_label.size()
         scaled_size = QSize(size.width() - margin * 2, size.height() - margin * 2)
@@ -775,7 +816,8 @@ class PageTwo(QWidget):
             painter.drawText(10, 260, f"(N) Change Experiment ID")
             painter.drawText(10, 290, f"(H) Hide UI")
             painter.drawText(10, 320, f"(V) View Detail Notes")
-            painter.drawText(10, 350, f"(X) Clear All!")
+            painter.drawText(10, 350, f"(T) Set Timer")
+            painter.drawText(10, 380, f"(X) Clear All!")
             if self.move_mode:
                 painter.drawText(10, 420, f"Moving Polygon ...")
                 painter.drawText(10, 450, f"(W, A, S, D) to Move")
@@ -801,6 +843,7 @@ class PageTwo(QWidget):
         seconds = int(self.frame_count // self.fps)
         minutes = seconds // 60  
         remaining_seconds = seconds % 60  
+        self.running_time = seconds
         return f"{minutes}:{remaining_seconds:02d}"
 
     def start_drawing(self):
@@ -907,33 +950,33 @@ class PageTwo(QWidget):
                 'rat_position_y': center[1]
             })
     
-    def submit_summary(self):
-        
-        reply = QMessageBox.question(self, "ยืนยันการจบการทดลอง", 
-                                     "คุณต้องการจบการทดลองและบันทึกข้อมูลหรือไม่?",
-                                     QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+    def submit_summary(self, skip_dialog=False):
+        if not skip_dialog:
+            reply = QMessageBox.question(self, "ยืนยันการจบการทดลอง", 
+                                        "คุณต้องการจบการทดลองและบันทึกข้อมูลหรือไม่?",
+                                        QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+            if reply != QMessageBox.Yes:
+                return  
 
-        if reply == QMessageBox.Yes:
-            for polygon in self.polygon_manager.polygons.values():
-                if polygon.id is not None:  
-                    success = self.main_window.db.update_area_summary(polygon.id, polygon.name, str(polygon.color), polygon.hit_count, round(polygon.hit_time, 2), str(polygon.points))
-                    if not success:
-                        print(f"ไม่สามารถอัปเดตข้อมูล polygon {polygon.name} (ID: {polygon.id})")
-            
-            if self.raw_data:
-                data_to_insert = [
-                    (d['experiment_id'], d['area_id'] if d['area_id'] is not None else None, d['time_stamp'], d['frame_count'], d['area_name'] if d['area_name'] is not None else None, d['rat_position_x'], d['rat_position_y'])
-                    for d in self.raw_data
-                ]
-                success = self.main_window.db.save_raw_data_batch(data_to_insert)
+        for polygon in self.polygon_manager.polygons.values():
+            if polygon.id is not None:
+                success = self.main_window.db.update_area_summary(polygon.id, polygon.name, str(polygon.color), polygon.hit_count, round(polygon.hit_time, 2), str(polygon.points))
                 if not success:
-                    QMessageBox.warning(self, "ข้อผิดพลาด", "ไม่สามารถบันทึก raw data ได้")
-                self.raw_data = []
+                    print(f"ไม่สามารถอัปเดตข้อมูล polygon {polygon.name} (ID: {polygon.id})")
 
-            self.stop_video()
-            self.main_window.switch_to_page(2)
-        else:
-            pass
+        if self.raw_data:
+            data_to_insert = [
+                (d['experiment_id'], d['area_id'] if d['area_id'] is not None else None, d['time_stamp'], d['frame_count'], d['area_name'] if d['area_name'] is not None else None, d['rat_position_x'], d['rat_position_y'])
+                for d in self.raw_data
+            ]
+            success = self.main_window.db.save_raw_data_batch(data_to_insert)
+            if not success:
+                QMessageBox.warning(self, "ข้อผิดพลาด", "ไม่สามารถบันทึก raw data ได้")
+            self.raw_data = []
+
+        self.stop_video()
+        self.clear_all_data()
+        self.main_window.switch_to_page(2)
 
 
 
@@ -1151,6 +1194,12 @@ class PageThree(QWidget):
 
         self.refresh()
     
+    def export_all_experiments_to_csv(self):
+        pass
+
+    def export_all_experiments_to_excel(self):
+        pass    
+
     def edit_experiment_info(self):
         preset_data = self.existing_data
         experiment_id = self.current_experiment_id
@@ -1485,10 +1534,10 @@ class PageThree(QWidget):
 
                 self.total_time = str(self.df_area_summary["Total Time"].sum()) + "  วินาที"
                 self.total_area = str(len(self.df_area_summary)) + "  พื้นที่"
-                self.avg_time = str(self.df_area_summary["Total Time"].mean()) + "  วินาที"
+                self.avg_time = str(round(self.df_area_summary["Total Time"].mean(), 2)) + "  วินาที"
                 self.total_area_label.setText(f"จำนวนพื้นที่ทั้งหมด:\n\n\n\n\t\t{self.total_area}")
                 self.total_time_label.setText(f"ระยะเวลาของพื้นที่ทั้งหมด:\n\n\n\n\t\t{self.total_time}")
-                self.avg_time_label.setText(f"ระยะเวลาเฉลี่ยของพื้นที่ทั้งหมด:\n\n\n\n\t\t{self.avg_time}")
+                self.avg_time_label.setText(f"ค่าเฉลี่ยเวลาของพื้นที่ทั้งหมด:\n\n\n\n\t\t{self.avg_time}")
             except Exception as e:
                 print(f"Error preparing area_summary: {e}")
                 self.df_area_summary = None
@@ -1496,7 +1545,7 @@ class PageThree(QWidget):
                 self.total_time = "ไม่มีปรากฏข้อมูล"
                 self.total_area_label.setText(f"จำนวนพื้นที่ทั้งหมด:\n\n\n\n\t\t{self.total_area}")
                 self.total_time_label.setText(f"ระยะเวลาของพื้นที่ทั้งหมด:\n\n\n\n\t\t{self.total_time}")
-                self.avg_time_label.setText(f"ระยะเวลาเฉลี่ยของพื้นที่ทั้งหมด:\n\n\n\n\t\t{self.avg_time}")
+                self.avg_time_label.setText(f"ค่าเฉลี่ยเวลาของพื้นที่ทั้งหมด:\n\n\n\n\t\t{self.avg_time}")
         
         self.update_graph()
 
@@ -1570,7 +1619,7 @@ class PageThree(QWidget):
         self.total_area_label.setText(f"จำนวนพื้นที่ทั้งหมด:\n\n\n\n\t\t{self.total_area}")
         self.total_time_label.setText(f"ระยะเวลาของพื้นที่ทั้งหมด:\n\n\n\n\t\t{self.total_time}")
         self.experiment_info.setText(f"ID ของการทดลอง: {self.current_experiment_id}\t\tชื่อการทดลอง: {self.current_experiment_name}\t\tวันที่ทดลอง: {self.current_experiment_date}\tประเภทการทดลอง: {self.current_experiment_type}")
-        self.avg_time_label.setText(f"ระยะเวลาเฉลี่ยของพื้นที่ทั้งหมด:\n\n\n\n\t\t{self.avg_time}")
+        self.avg_time_label.setText(f"ค่าเฉลี่ยเวลาของพื้นที่ทั้งหมด:\n\n\n\n\t\t{self.avg_time}")
 
     def switch_to_home_page(self):
         self.experiment_dropdown.setCurrentIndex(self.experiment_dropdown.findData(0))
