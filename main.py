@@ -847,11 +847,26 @@ class PageTwo(QWidget):
         return f"{minutes}:{remaining_seconds:02d}"
 
     def start_drawing(self):
-        name, ok = QInputDialog.getText(self, "ชื่อพื้นที่", "กรุณาตั้งชื่อ")
-        if not ok:
-            return
-        elif not name.strip():
-            name = f"Polygon-{len(self.polygon_manager.polygons) + 1}"
+        existing_names = [polygon.name for polygon in self.polygon_manager.polygons.values()]
+        while True:
+            name, ok = QInputDialog.getText(self, "ชื่อพื้นที่", "กรุณาตั้งชื่อ")
+            if not ok:
+                return  
+
+            name = name.strip()
+            if not name:
+                base_name = f"Polygon-{len(self.polygon_manager.polygons) + 1}"
+                name = base_name
+                i = 2
+                while name in existing_names:
+                    name = f"{base_name}-{i}"
+                    i += 1
+                break
+
+            if name in existing_names:
+                QMessageBox.warning(self, "ชื่อซ้ำ", f'ชื่อ "{name}" ถูกใช้ไปแล้ว กรุณาตั้งชื่อใหม่')
+            else:
+                break  
 
         color = QColorDialog.getColor()
         if not color.isValid():
@@ -1192,13 +1207,7 @@ class PageThree(QWidget):
 
         self.setLayout(self.main_layout)
 
-        self.refresh()
-    
-    def export_all_experiments_to_csv(self):
-        pass
-
-    def export_all_experiments_to_excel(self):
-        pass    
+        self.refresh()   
 
     def edit_experiment_info(self):
         preset_data = self.existing_data
@@ -1365,7 +1374,15 @@ class PageThree(QWidget):
             print("Not found area summary and rawdata")
             return
         
-        if self.area_summary :
+        if self.current_experiment_id:
+            experiment_info = self.main_window.db.get_experiment_by_id(self.current_experiment_id)
+            experiment_file = os.path.join('export', f"{self.current_experiment_date}_{self.current_experiment_name}_experiment_info.csv")
+            experiment_file_name = self.sanitize_filename(experiment_file)
+            experiment_headers = ['experiment_id', 'experiment_type_id', 'experiment_name', 'experiment_date', 'experiment_note', 'video_path']
+            self._write_csv([experiment_info], experiment_file_name, experiment_headers)
+            print(f"Exported experiment info to {experiment_file}")
+        
+        if self.area_summary:
             summary_file = os.path.join('export', f"{self.current_experiment_date}_{self.current_experiment_name}_area_summary.csv")
             summary_area_file = self.sanitize_filename(summary_file)
             summary_headers = ['area_id', 'experiment_id', 'area_name', 'color', 'hit_count', 'total_time', 'area_point']
@@ -1395,6 +1412,12 @@ class PageThree(QWidget):
             default_sheet = workbook.active
             if self.area_summary or self.raw_data:
                 workbook.remove(default_sheet)
+            
+            if self.current_experiment_id:
+                experiment_info = self.main_window.db.get_experiment_by_id(self.current_experiment_id)
+                headers = ['experiment_id', 'experiment_type_id', 'experiment_name', 'experiment_date', 'experiment_note', 'video_path']
+                ws_experiment_info = workbook.create_sheet(title="Experiment Info")
+                self._write_excel([experiment_info], ws_experiment_info, headers)
 
             if self.area_summary:
                 headers = ['area_id', 'experiment_id', 'area_name', 'color', 'hit_count', 'total_time', 'area_point']
@@ -1415,6 +1438,12 @@ class PageThree(QWidget):
         except Exception as e:
             print(f"Error writing to Excel file {excel_file_sanitized}: {e}")
             raise
+
+    def export_all_experiments_to_csv(self):
+        pass
+
+    def export_all_experiments_to_excel(self):
+        pass 
     
     def create_experiment_dropdown(self):
         dropdown = QComboBox()
@@ -1499,6 +1528,10 @@ class PageThree(QWidget):
     def prepare_data_for_graph(self):
         self.df_raw_data = None
         self.df_area_summary = None
+        self.experiment_time = "ไม่มีปรากฏข้อมูล"
+        self.total_area = "ไม่มีปรากฏข้อมูล"
+        self.total_time = "ไม่มีปรากฏข้อมูล"
+        self.avg_time = "ไม่มีปรากฏข้อมูล"
 
         def parse_color(color_str):
             try:
@@ -1517,12 +1550,8 @@ class PageThree(QWidget):
                 print("Raw DataFrame:\n", self.df_raw_data.head())
 
                 self.experiment_time = str(self.df_raw_data["Timestamp"].max()) + "  วินาที"
-                self.experiment_time_label.setText(f"ระยะเวลาการทดลอง:\n\n\n\n\t\t{self.experiment_time}")
             except Exception as e:
                 print(f"Error preparing raw_data: {e}")
-                self.df_raw_data = None
-                self.experiment_time = "ไม่มีปรากฏข้อมูล"
-                self.experiment_time_label.setText(f"ระยะเวลาการทดลอง:\n\n\n\n\t\t{self.experiment_time}")
 
         if self.area_summary:
             try:
@@ -1535,17 +1564,13 @@ class PageThree(QWidget):
                 self.total_time = str(self.df_area_summary["Total Time"].sum()) + "  วินาที"
                 self.total_area = str(len(self.df_area_summary)) + "  พื้นที่"
                 self.avg_time = str(round(self.df_area_summary["Total Time"].mean(), 2)) + "  วินาที"
-                self.total_area_label.setText(f"จำนวนพื้นที่ทั้งหมด:\n\n\n\n\t\t{self.total_area}")
-                self.total_time_label.setText(f"ระยะเวลาของพื้นที่ทั้งหมด:\n\n\n\n\t\t{self.total_time}")
-                self.avg_time_label.setText(f"ค่าเฉลี่ยเวลาของพื้นที่ทั้งหมด:\n\n\n\n\t\t{self.avg_time}")
             except Exception as e:
                 print(f"Error preparing area_summary: {e}")
-                self.df_area_summary = None
-                self.total_area = "ไม่มีปรากฏข้อมูล"
-                self.total_time = "ไม่มีปรากฏข้อมูล"
-                self.total_area_label.setText(f"จำนวนพื้นที่ทั้งหมด:\n\n\n\n\t\t{self.total_area}")
-                self.total_time_label.setText(f"ระยะเวลาของพื้นที่ทั้งหมด:\n\n\n\n\t\t{self.total_time}")
-                self.avg_time_label.setText(f"ค่าเฉลี่ยเวลาของพื้นที่ทั้งหมด:\n\n\n\n\t\t{self.avg_time}")
+
+        self.experiment_time_label.setText(f"ระยะเวลาการทดลอง:\n\n\n\n\t\t{self.experiment_time}")
+        self.total_area_label.setText(f"จำนวนพื้นที่ทั้งหมด:\n\n\n\n\t\t{self.total_area}")
+        self.total_time_label.setText(f"ระยะเวลาของพื้นที่ทั้งหมด:\n\n\n\n\t\t{self.total_time}")
+        self.avg_time_label.setText(f"ค่าเฉลี่ยเวลาของพื้นที่ทั้งหมด:\n\n\n\n\t\t{self.avg_time}")
         
         self.update_graph()
 
