@@ -1118,6 +1118,14 @@ class PageThree(QWidget):
         self.excel_export.clicked.connect(self.export_to_excel)
         self.excel_export.setObjectName("GreenButton")
 
+        self.csv_all_data = QPushButton("Export All Experiment to CSV")
+        self.csv_all_data.clicked.connect(self.export_all_experiments_to_csv)
+        self.csv_all_data.setObjectName("GreenButton")
+
+        self.excel_all_data = QPushButton("Export All Experiment to Excel")
+        self.excel_all_data.clicked.connect(self.export_all_experiments_to_excel)
+        self.excel_all_data.setObjectName("GreenButton")
+
         self.theme_dropdown = QComboBox()
         self.theme_dropdown.setFixedSize(180, 32)
         self.theme_dropdown.setObjectName("ThemeDropdown")
@@ -1198,6 +1206,9 @@ class PageThree(QWidget):
         self.button_layout.addWidget(self.edit_experiment)
         self.button_layout.addWidget(self.csv_export)
         self.button_layout.addWidget(self.excel_export)
+        self.button_layout.addWidget(self.csv_all_data)
+        self.button_layout.addWidget(self.excel_all_data)
+        self.button_layout.addStretch()
         self.button_layout.addWidget(self.switch_page)
         self.button_layout.addStretch()  
 
@@ -1381,6 +1392,13 @@ class PageThree(QWidget):
             experiment_headers = ['experiment_id', 'experiment_type_id', 'experiment_name', 'experiment_date', 'experiment_note', 'video_path']
             self._write_csv([experiment_info], experiment_file_name, experiment_headers)
             print(f"Exported experiment info to {experiment_file}")
+
+            experiment_type = self.main_window.db.get_experiment_types()
+            experiment_type_file = os.path.join('export', f"{self.current_experiment_date}_{self.current_experiment_name}_experiment_type.csv")
+            experiment_type_file_name = self.sanitize_filename(experiment_type_file)
+            experiment_type_headers = ['experiment_type_id', 'type_name']
+            self._write_csv(experiment_type, experiment_type_file_name, experiment_type_headers)
+            print(f"Exported experiment type to {experiment_type_file}")
         
         if self.area_summary:
             summary_file = os.path.join('export', f"{self.current_experiment_date}_{self.current_experiment_name}_area_summary.csv")
@@ -1419,6 +1437,11 @@ class PageThree(QWidget):
                 ws_experiment_info = workbook.create_sheet(title="Experiment Info")
                 self._write_excel([experiment_info], ws_experiment_info, headers)
 
+                experiment_type = self.main_window.db.get_experiment_types()
+                headers = ['experiment_type_id', 'type_name']
+                ws_experiment_type = workbook.create_sheet(title="Experiment Type")
+                self._write_excel(experiment_type, ws_experiment_type, headers)
+
             if self.area_summary:
                 headers = ['area_id', 'experiment_id', 'area_name', 'color', 'hit_count', 'total_time', 'area_point']
                 ws_summary = workbook.create_sheet(title="Area Summary")
@@ -1440,10 +1463,78 @@ class PageThree(QWidget):
             raise
 
     def export_all_experiments_to_csv(self):
-        pass
+        try:
+            all_experiments = self.main_window.db.get_all_experiments()
+            all_experiments_file = os.path.join('export', "all_experiments.csv")
+            all_experiments_file_name = self.sanitize_filename(all_experiments_file)
+            all_experiments_headers = ['experiment_id', 'experiment_type_id', 'experiment_name', 'experiment_date', 'experiment_note', 'video_path']
+            self._write_csv(all_experiments, all_experiments_file_name, all_experiments_headers)
+            print(f"Exported all experiments to {all_experiments_file}")
+
+            all_experiment_types = self.main_window.db.get_experiment_types()
+            all_experiment_types_file = os.path.join('export', "all_experiment_types.csv")
+            all_experiment_types_file_name = self.sanitize_filename(all_experiment_types_file)
+            all_experiment_types_headers = ['experiment_type_id', 'type_name']
+            self._write_csv(all_experiment_types, all_experiment_types_file_name, all_experiment_types_headers)
+            print(f"Exported all experiment types to {all_experiment_types_file}")
+
+            all_area_summary = self.main_window.db.get_all_area_summary()
+            all_area_summary_file = os.path.join('export', "all_area_summary.csv")
+            all_area_summary_file_name = self.sanitize_filename(all_area_summary_file)
+            all_area_summary_headers = ['area_id', 'experiment_id', 'area_name', 'color', 'hit_count', 'total_time', 'area_point']
+            self._write_csv(all_area_summary, all_area_summary_file_name, all_area_summary_headers)
+            print(f"Exported all area summary to {all_area_summary_file}")
+
+            all_raw_data = self.main_window.db.get_all_raw_data()
+            all_raw_data_file = os.path.join('export', "all_raw_data.csv")
+            all_raw_data_file_name = self.sanitize_filename(all_raw_data_file)
+            all_raw_data_headers = ['experiment_id', 'area_id', 'timestamp', 'frame_count', 'area_name', 'rat_position_x', 'rat_position_y']
+            self._write_csv(all_raw_data, all_raw_data_file_name, all_raw_data_headers)
+            print(f"Exported all raw data to {all_raw_data_file}")
+
+        except Exception as e:
+            print(f"Error writing to CSV file {all_experiments_file_name}: {e}")
+            raise
 
     def export_all_experiments_to_excel(self):
-        pass 
+        excel_file = os.path.join('export', "all_experiments_data.xlsx")
+        excel_file_name = self.sanitize_filename(excel_file)
+        output_dir = os.path.dirname(excel_file_name)
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir, exist_ok=True)
+
+        try:
+            workbook = Workbook()
+            default_sheet = workbook.active
+            if self.area_summary or self.raw_data:
+                workbook.remove(default_sheet)
+
+            all_experiments = self.main_window.db.get_all_experiments()
+            all_experiment_headers = ['experiment_id', 'experiment_type_id', 'experiment_name', 'experiment_date', 'experiment_note', 'video_path']
+            ws_all_experiments = workbook.create_sheet(title="All Experiments")
+            self._write_excel(all_experiments, ws_all_experiments, all_experiment_headers)
+
+            all_experiment_types = self.main_window.db.get_experiment_types()
+            all_experiment_type_headers = ['experiment_type_id', 'type_name']
+            ws_all_experiment_types = workbook.create_sheet(title="All Experiment Types")
+            self._write_excel(all_experiment_types, ws_all_experiment_types, all_experiment_type_headers)
+
+            all_area_summary = self.main_window.db.get_all_area_summary()
+            all_area_summary_headers = ['area_id', 'experiment_id', 'area_name', 'color', 'hit_count', 'total_time', 'area_point']
+            ws_all_area_summary = workbook.create_sheet(title="All Area Summary")
+            self._write_excel(all_area_summary, ws_all_area_summary, all_area_summary_headers)
+
+            all_raw_data = self.main_window.db.get_all_raw_data()
+            all_raw_data_headers = ['experiment_id', 'area_id', 'timestamp', 'frame_count', 'area_name', 'rat_position_x', 'rat_position_y']
+            ws_all_raw_data = workbook.create_sheet(title="All Raw Data")
+            self._write_excel(all_raw_data, ws_all_raw_data, all_raw_data_headers)
+
+            workbook.save(excel_file_name)
+            print(f"Exported all data to {excel_file_name}")
+
+        except Exception as e:
+            print(f"Error writing to Excel file {excel_file_name}: {e}")
+            raise
     
     def create_experiment_dropdown(self):
         dropdown = QComboBox()
@@ -1484,16 +1575,17 @@ class PageThree(QWidget):
             ax_pie = self.pie_graph.figure.add_subplot(111)
             if has_area_summary:
                 print("Generating bar and pie graphs")
-                sns.barplot(data=self.df_area_summary, x="Area Name", y="Hit Count", hue="Area Name", palette=list(self.df_area_summary["Color"]), legend=False, ax=ax_bar, edgecolor='#444444', linewidth=1)
+                sns.barplot(data=self.df_area_summary, x="Area Name", y="Hit Count", hue="Area Name", palette=list(self.df_area_summary["Color"]), legend=False, ax=ax_bar, edgecolor='#444444', linewidth=1.5)
                 for i, v in enumerate(self.df_area_summary["Hit Count"]):
-                    ax_bar.text(i, (v/2), str(v), ha='center', va='bottom', fontsize=10)
+                    ax_bar.text(i, (v/2), str(v), ha='center', va='bottom', fontsize=12)
                 ax_bar.set_title("Area per number of detections")
                 ax_bar.set_xlabel("Area Name")
                 ax_bar.set_ylabel("Number of Detections")
 
                 if self.df_area_summary["Total Time"].sum() > 0:
-                    ax_pie.pie(self.df_area_summary["Total Time"], labels=self.df_area_summary["Area Name"], colors=self.df_area_summary["Color"], shadow=True, autopct='%1.1f%%')
+                    ax_pie.pie(self.df_area_summary["Total Time"], labels=self.df_area_summary["Area Name"], colors=self.df_area_summary["Color"], autopct=lambda pct: f"{pct:.1f}%\n({pct * self.df_area_summary['Total Time'].sum() / 100:.1f} seconds)", wedgeprops={'edgecolor': 'black', 'linewidth': 1.5})
                     ax_pie.set_title("Area per total time")
+                    ax_pie.axis('equal')
                 else : 
                     print("No valid data available for pie graph")
                     ax_pie.text(0.5, 0.5, "No data available\nOr invalid data", ha='center', va='center', fontsize=14)
@@ -1547,7 +1639,7 @@ class PageThree(QWidget):
                 self.df_raw_data["X"] = pd.to_numeric(self.df_raw_data["X"], errors="coerce")
                 self.df_raw_data["Y"] = pd.to_numeric(self.df_raw_data["Y"], errors="coerce")
                 self.df_raw_data["Area Name"] = self.df_raw_data["Area Name"].fillna("Unknown")
-                print("Raw DataFrame:\n", self.df_raw_data.head())
+                print("Raw DataFrame:\n", self.df_raw_data.head(3))
 
                 self.experiment_time = str(self.df_raw_data["Timestamp"].max()) + "  วินาที"
             except Exception as e:
@@ -1559,7 +1651,7 @@ class PageThree(QWidget):
                 self.df_area_summary["Hit Count"] = pd.to_numeric(self.df_area_summary["Hit Count"], errors="coerce")
                 self.df_area_summary["Total Time"] = pd.to_numeric(self.df_area_summary["Total Time"], errors="coerce")
                 self.df_area_summary["Color"] = self.df_area_summary["Color"].apply(parse_color)
-                print("Area Summary DataFrame:\n", self.df_area_summary.head())
+                print("Area Summary DataFrame:\n", self.df_area_summary.head(3))
 
                 self.total_time = str(self.df_area_summary["Total Time"].sum()) + "  วินาที"
                 self.total_area = str(len(self.df_area_summary)) + "  พื้นที่"
@@ -1611,14 +1703,14 @@ class PageThree(QWidget):
                 "video_path" : experiment[5]
             }
 
-            if self.area_summary and self.raw_data:
-                print(f"\nLoad Data success Experiment ID: {self.current_experiment_id} Experiment Name: {self.current_experiment_name}\narea_summary:\n{self.area_summary[0]}\nraw_data:\n{self.raw_data[0]}")
-            elif self.area_summary or self.raw_data:
-                print(f"\nLoad Data incomplete Experiment ID: {self.current_experiment_id} Experiment Name: {self.current_experiment_name}\narea_summary:\n{self.area_summary[0] if self.area_summary else None}\nraw_data:\n{self.raw_data[0] if self.raw_data else None}")
-            else:
-                print(f"\nLoad Data fail Experiment ID: {self.current_experiment_id} Experiment Name: {self.current_experiment_name}")
-                print(f"Area summary data not found: {self.area_summary}")
-                print(f"Raw data not found: {self.raw_data}")
+            # if self.area_summary and self.raw_data:
+            #     print(f"\nLoad Data success Experiment ID: {self.current_experiment_id} Experiment Name: {self.current_experiment_name}\narea_summary:\n{self.area_summary[0]}\nraw_data:\n{self.raw_data[0]}")
+            # elif self.area_summary or self.raw_data:
+            #     print(f"\nLoad Data incomplete Experiment ID: {self.current_experiment_id} Experiment Name: {self.current_experiment_name}\narea_summary:\n{self.area_summary[0] if self.area_summary else None}\nraw_data:\n{self.raw_data[0] if self.raw_data else None}")
+            # else:
+            #     print(f"\nLoad Data fail Experiment ID: {self.current_experiment_id} Experiment Name: {self.current_experiment_name}")
+            #     print(f"Area summary data not found: {self.area_summary}")
+            #     print(f"Raw data not found: {self.raw_data}")
         else:
             print("No experiment selected")
             self.clear_data()
