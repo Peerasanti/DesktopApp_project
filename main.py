@@ -1156,6 +1156,13 @@ class PageThree(QWidget):
         self.line_graph = FigureCanvas(plt.Figure(figsize=(4.5, 3.5)))
         self.pie_graph = FigureCanvas(plt.Figure(figsize=(4.5, 3.5)))
 
+        self.area_table = QTableWidget()
+        self.area_table.setColumnCount(4)
+        self.area_table.setHorizontalHeaderLabels(["ชื่อพื้นที่", "สีพื้นที่", "จำนวนการตรวจจับ/ครั้ง", "เวลาที่ตรวจจับได้/วินาที"])
+        self.area_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.area_table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.area_table.setStyleSheet("font-size: 14px;")
+
         self.main_layout = QVBoxLayout()
 
         top_row_layout = QHBoxLayout()
@@ -1194,12 +1201,16 @@ class PageThree(QWidget):
         self.graph_layout = QGridLayout()
         self.graph_layout.addWidget(self.card_frame, 0, 0)
         self.graph_layout.addWidget(self.bar_graph, 0, 1)
-        self.graph_layout.addWidget(self.line_graph, 1, 0)
+        self.graph_layout.addWidget(self.area_table, 1, 0)
         self.graph_layout.addWidget(self.pie_graph, 1, 1)
         self.graph_layout.setRowMinimumHeight(0, 350)
         self.graph_layout.setRowMinimumHeight(1, 350)
         self.graph_layout.setColumnMinimumWidth(0, 450)
         self.graph_layout.setColumnMinimumWidth(1, 450)
+        self.graph_layout.setRowStretch(0, 1)
+        self.graph_layout.setRowStretch(1, 1)
+        self.graph_layout.setColumnStretch(0, 1)
+        self.graph_layout.setColumnStretch(1, 1)
         self.main_layout.setStretchFactor(self.graph_layout, 1)   
 
         self.button_layout = QHBoxLayout()
@@ -1210,7 +1221,6 @@ class PageThree(QWidget):
         self.button_layout.addWidget(self.excel_all_data)
         self.button_layout.addStretch()
         self.button_layout.addWidget(self.switch_page)
-        self.button_layout.addStretch()  
 
         self.main_layout.addLayout(self.dropdown_layout) 
         self.main_layout.addLayout(self.graph_layout)                
@@ -1549,9 +1559,36 @@ class PageThree(QWidget):
 
         return dropdown
 
-    def update_graph(self):
-        print("Updating graphs...")
+    def update_table(self):
+        if self.df_area_summary is None or self.df_area_summary.empty:
+            self.area_table.setRowCount(0)
+            self.area_table.setRowCount(1)
+            item = QTableWidgetItem("ไม่มีข้อมูลพื้นที่")
+            item.setTextAlignment(Qt.AlignCenter)
+            self.area_table.setItem(0, 0, item)
+            self.area_table.setSpan(0, 0, 1, self.area_table.columnCount())
+            return
+        
+        self.area_table.clearSpans()
 
+        df = self.df_area_summary.copy()
+        self.area_table.setRowCount(len(df))
+        
+        for row, (_, data) in enumerate(df.iterrows()):
+            color_hex = data["Color"]
+            values = [
+                str(data["Area Name"]),
+                str(color_hex),
+                str(data["Hit Count"]) + "  ครั้ง",
+                str(data["Total Time"]) + "  วินาที",
+            ]
+            for col, val in enumerate(values):
+                item = QTableWidgetItem(val)
+                if col == 1: 
+                    item.setBackground(QColor(color_hex))
+                self.area_table.setItem(row, col, item)
+        
+    def update_graph(self):
         self.bar_graph.figure.clear()
         self.line_graph.figure.clear()
         self.pie_graph.figure.clear()
@@ -1574,7 +1611,6 @@ class PageThree(QWidget):
             ax_bar = self.bar_graph.figure.add_subplot(111)
             ax_pie = self.pie_graph.figure.add_subplot(111)
             if has_area_summary:
-                print("Generating bar and pie graphs")
                 sns.barplot(data=self.df_area_summary, x="Area Name", y="Hit Count", hue="Area Name", palette=list(self.df_area_summary["Color"]), legend=False, ax=ax_bar, edgecolor='#444444', linewidth=1.5)
                 for i, v in enumerate(self.df_area_summary["Hit Count"]):
                     ax_bar.text(i, (v/2), str(v), ha='center', va='bottom', fontsize=12)
@@ -1665,6 +1701,7 @@ class PageThree(QWidget):
         self.avg_time_label.setText(f"ค่าเฉลี่ยเวลาของพื้นที่ทั้งหมด:\n\n\n\n\t\t{self.avg_time}")
         
         self.update_graph()
+        self.update_table()
 
     def refresh(self):
         self.experiment_dropdown.blockSignals(True)
