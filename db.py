@@ -23,7 +23,7 @@ class DatabaseManager:
         self.cursor.execute("""
             INSERT OR IGNORE INTO experiment_type (type_name) VALUES 
             ('Y-Maze'), 
-            ('MNovel Object Recognition Test'),
+            ('Novel Object Recognition Test'),
             ('Elevated Plus Maze'),
             ('Light/Dark Box Test: LDB'),
             ('Mirror Test')
