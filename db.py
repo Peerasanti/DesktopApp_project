@@ -274,6 +274,16 @@ class DatabaseManager:
             self.conn.rollback()
             print(f"Error deleting area summary: {e}")
             return False
+        
+    def delete_area_summary_by_id(self, area_id):
+        try:
+            self.cursor.execute("DELETE FROM area_summary WHERE area_id = ?", (area_id,))
+            self.conn.commit()
+            return True
+        except sqlite3.Error as e:
+            self.conn.rollback()
+            print(f"Error deleting area summary: {e}")
+            return False
     
     def delete_raw_data_by_experiment_id(self, experiment_id):
         try:

@@ -580,13 +580,17 @@ class PageTwo(QWidget):
         
     def clear_all_data(self):
         self.polygon_manager.polygons = {}
+        self.main_window.db.delete_area_summary_by_experiment_id(self.experiment_id)
 
     def move_polygon(self):
         self.move_mode = not self.move_mode
 
     def delete_polygon(self, name):
         if name in self.polygon_manager.polygons:
+            area_id = self.polygon_manager.polygons[name].id
             del self.polygon_manager.polygons[name]
+            self.main_window.db.delete_area_summary_by_id(area_id)
+
 
     def edit_polygon(self, name):
         polygon = self.polygon_manager.polygons.get(name)
@@ -972,7 +976,7 @@ class PageTwo(QWidget):
                                         QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
             if reply != QMessageBox.Yes:
                 return  
-
+            
         for polygon in self.polygon_manager.polygons.values():
             if polygon.id is not None:
                 success = self.main_window.db.update_area_summary(polygon.id, polygon.name, str(polygon.color), polygon.hit_count, round(polygon.hit_time, 2), str(polygon.points))
@@ -1675,7 +1679,7 @@ class PageThree(QWidget):
                 self.df_raw_data["X"] = pd.to_numeric(self.df_raw_data["X"], errors="coerce")
                 self.df_raw_data["Y"] = pd.to_numeric(self.df_raw_data["Y"], errors="coerce")
                 self.df_raw_data["Area Name"] = self.df_raw_data["Area Name"].fillna("Unknown")
-                print("Raw DataFrame:\n", self.df_raw_data.head(3))
+                # print("Raw DataFrame:\n", self.df_raw_data.head(3))
 
                 self.experiment_time = str(self.df_raw_data["Timestamp"].max()) + "  วินาที"
             except Exception as e:
@@ -1687,7 +1691,7 @@ class PageThree(QWidget):
                 self.df_area_summary["Hit Count"] = pd.to_numeric(self.df_area_summary["Hit Count"], errors="coerce")
                 self.df_area_summary["Total Time"] = pd.to_numeric(self.df_area_summary["Total Time"], errors="coerce")
                 self.df_area_summary["Color"] = self.df_area_summary["Color"].apply(parse_color)
-                print("Area Summary DataFrame:\n", self.df_area_summary.head(3))
+                # print("Area Summary DataFrame:\n", self.df_area_summary.head(3))
 
                 self.total_time = str(self.df_area_summary["Total Time"].sum()) + "  วินาที"
                 self.total_area = str(len(self.df_area_summary)) + "  พื้นที่"
