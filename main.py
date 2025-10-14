@@ -591,7 +591,6 @@ class PageTwo(QWidget):
             del self.polygon_manager.polygons[name]
             self.main_window.db.delete_area_summary_by_id(area_id)
 
-
     def edit_polygon(self, name):
         polygon = self.polygon_manager.polygons.get(name)
         if not polygon:
@@ -984,10 +983,20 @@ class PageTwo(QWidget):
                     print(f"ไม่สามารถอัปเดตข้อมูล polygon {polygon.name} (ID: {polygon.id})")
 
         if self.raw_data:
+            all_area_id = [polygon.id for polygon in self.polygon_manager.polygons.values() if polygon.id is not None]
+            all_area_name = [polygon.name for polygon in self.polygon_manager.polygons.values() if polygon.id is not None]
             data_to_insert = [
-                (d['experiment_id'], d['area_id'] if d['area_id'] is not None else None, d['time_stamp'], d['frame_count'], d['area_name'] if d['area_name'] is not None else None, d['rat_position_x'], d['rat_position_y'])
+                (d['experiment_id'], 
+                 d['area_id'] if d['area_id'] in all_area_id else None, 
+                 d['time_stamp'], 
+                 d['frame_count'], 
+                 d['area_name'] if d['area_name'] in all_area_name else None, 
+                 d['rat_position_x'], 
+                 d['rat_position_y'])
                 for d in self.raw_data
             ]
+
+
             success = self.main_window.db.save_raw_data_batch(data_to_insert)
             if not success:
                 QMessageBox.warning(self, "ข้อผิดพลาด", "ไม่สามารถบันทึก raw data ได้")
@@ -1631,7 +1640,7 @@ class PageThree(QWidget):
                     ax_pie.text(0.5, 0.5, "No data available\nOr invalid data", ha='center', va='center', fontsize=14)
                     ax_pie.set_axis_off()
             else:
-                print("No valid data available for bar and pie graphs")
+                # print("No valid data available for bar and pie graphs")
                 ax_bar.text(0.5, 0.5, "No data available\nOr invalid data", ha='center', va='center', fontsize=14)
                 ax_pie.text(0.5, 0.5, "No data available\nOr invalid data", ha='center', va='center', fontsize=14)
                 ax_bar.set_axis_off()
