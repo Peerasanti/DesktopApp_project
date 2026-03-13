@@ -1,0 +1,202 @@
+/* ======================== */
+/* 🌙 Base Dark Theme       */
+/* ======================== */
+QWidget {
+    background-color: #121212;
+    color: #e0f2e9;
+    font-family: 'Arial';
+    font-size: 16px;
+}
+
+/* Header */
+QLabel#Header {
+    color: #00ff66;
+    font-size: 28px;
+    font-weight: bold;
+    padding: 10px;
+}
+
+/* ======================== */
+/* 🔘 Buttons               */
+/* ======================== */
+QPushButton {
+    background-color: #333333;
+    color: #e0ffe0;
+    border-radius: 8px;
+    padding: 6px 14px;
+    min-height: 32px;
+    font-size: 13px;
+}
+
+/* Main Button (Blue) */
+QPushButton#MainButton {
+    background-color: #0066cc;
+    color: white;
+    font-weight: bold;
+}
+QPushButton#MainButton:hover {
+    background-color: #3385ff;
+}
+QPushButton#MainButton:pressed {
+    background-color: #004c99;
+}
+
+/* Yellow Button */
+QPushButton#YellowButton {
+    background-color: #e6b800;
+    color: black;
+    font-weight: bold;
+}
+QPushButton#YellowButton:hover {
+    background-color: #ffd11a;
+}
+QPushButton#YellowButton:pressed {
+    background-color: #b38f00;
+}
+
+/* Red Button */
+QPushButton#RedButton {
+    background-color: #cc0000;
+    color: white;
+    font-weight: bold;
+}
+QPushButton#RedButton:hover {
+    background-color: #ff1a1a;
+}
+QPushButton#RedButton:pressed {
+    background-color: #990000;
+}
+
+/* Green Button */
+QPushButton#GreenButton {
+    background-color: #009933;
+    color: white;
+    font-weight: bold;
+    border: none;
+}
+QPushButton#GreenButton:hover {
+    background-color: #00cc44;
+}
+QPushButton#GreenButton:pressed {
+    background-color: #006622;
+}
+
+/* ======================== */
+/* 📊 Table                 */
+/* ======================== */
+QTableWidget {
+    background-color: #111;
+    color: #00FF88;
+    gridline-color: #00aa55;
+    border: 2px solid #00ff88;
+    border-radius: 6px;
+}
+QTableCornerButton::section {
+    background-color: #222;
+    color: #00FF88;
+    font-weight: bold;
+    padding: 6px;
+    border: 1px solid #00aa55; 
+    margin: 0;
+    padding: 0;   
+}
+QHeaderView::section {
+    background-color: #222;
+    color: #00FF88;
+    font-weight: bold;
+    padding: 6px;
+    border: 1px solid #00aa55;
+}
+QTableWidget::item:selected {
+    background-color: #00aa55;
+    color: black;
+}
+
+/* ======================== */
+/* ⬇️ ComboBox (Dark)       */
+/* ======================== */
+QComboBox {
+    background-color: #1e1e1e;
+    color: #e0f2e9;
+    border: 1px solid #444;
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: 13px;
+}
+QComboBox:hover {
+    border: 1px solid #00cc66;
+}
+QComboBox::drop-down {
+    subcontrol-origin: padding;
+    subcontrol-position: top right;
+    width: 24px;
+    border-left: 1px solid #444;
+    background: #2a2a2a;
+}
+QComboBox QAbstractItemView {
+    background-color: #1e1e1e;
+    color: #e0f2e9;
+    selection-background-color: #00aa55;
+    selection-color: black;
+    border: 1px solid #444;
+}
+
+/* ======================== */
+/* ✏️ LineEdit              */
+/* ======================== */
+QLineEdit {
+    background-color: #1e1e1e;
+    border: 1px solid #444;
+    border-radius: 6px;
+    padding: 6px;
+    color: #e0f2e9;
+    font-size: 14px;
+}
+QLineEdit:focus {
+    border: 1px solid #00cc66;
+    background-color: #262626;
+}
+
+/* ======================== */
+/* 📦 Card (QFrame)         */
+/* ======================== */
+QFrame {
+    background-color: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 10px;
+}
+QFrame QLabel {
+    color: #e0f2e9;
+    font-size: 14px;
+}
+
+/* ======================== */
+/* 🖱 ScrollBar             */
+/* ======================== */
+QScrollBar:vertical {
+    background: #111;
+    width: 12px;
+}
+QScrollBar::handle:vertical {
+    background: #00FF88;
+    min-height: 20px;
+    border-radius: 6px;
+}
+QScrollBar::handle:vertical:hover {
+    background: #00cc66;
+}
+
+QScrollBar:horizontal {
+    background: #111;
+    height: 12px;
+}
+QScrollBar::handle:horizontal {
+    background: #00FF88;
+    min-width: 20px;
+    border-radius: 6px;
+}
+QScrollBar::handle:horizontal:hover {
+    background: #00cc66;
+}
+
+
